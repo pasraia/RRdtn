@@ -1,0 +1,17 @@
+Package: RRdtn
+Type: Package
+Title: Species Distribution Modelling for Rare Species
+Date: 2022-12-22
+Version: 0.5.1
+Author: Alessandro Mondanaro, Mirko Di Febbraro, Silvia Castiglione,
+        Carmela Serio, Marina Melchionna, Pasquale Raia
+Maintainer: Alessandro Mondanaro <alessandro.mondanaro@unifi.it>
+Description: ENphylo couples Environmental Niche Factor Analysis and phylogenetic information to implement Species Distribution Models for species with scanty occurrence data.
+License: GPL-2
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 3.6.0)
+Imports: ape, raster, methods,pbapply,Rphylopars,RRphylo,dismo (>= 1.3),gtools,
+         adehabitatMA, ecospat (>= 3.2.1), foreach, doParallel, PresenceAbsence, 
+         parallel, ade4, sp, biomod2 (>= 4.1), terra, sf
+RoxygenNote: 7.2.1
