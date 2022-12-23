@@ -86,12 +86,12 @@
 #' \dontrun{
 #'setwd("YOUR_DIRECTORY")
 #'getwd()->main.dir
-#'url<-"https://www.dropbox.com/s/pdcf1psidyzjkjk/ENphylo%20code%26data.zip?dl=1"
-#'download.file(url,file.path(main.dir,"ENphylo code&data.zip"),mode="wb")
-#'unzip("ENphylo code&data.zip")
-#'load("example_data.RData")
-#'MASK_FULL<-raster::raster("variable_bio1.tif")
-#'external_data<-raster::stack(list.files("external_data",full.names=TRUE))
+#'url<-"https://www.dropbox.com/s/wm7qcuwm0nm35w2/ENphylo%20code%26data%202.zip?dl=1"
+#'download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
+#'unzip("ENphylo code&data 2.zip")
+#'load("ENphylo code&data/example_data.RData")
+#'MASK_FULL<-raster::raster("ENphylo code&data/variable_bio1.tif")
+#'external_data<-raster::stack(list.files("ENphylo code&data/external_data",full.names=TRUE))
 #'
 #' ## NOTE: Given the size of the data, running the function is time-comsuming
 #' ### CASE 1
