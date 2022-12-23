@@ -16,11 +16,13 @@ ENphylo_modeling(input_data, tree, input_mask, obs_col, time_col=NULL,
 \code{sf::data.frame} objects containing species occurrence data in binary
 format (ones for presence, zero for background points) along with the
 explanatory variables to be used in ENFA or ENphylo. Each element of the
-list must named (i.e. the species name). If \code{external_enfa_models} are
-provided, \code{input_data} should not be supplied.}
+list must be named (i.e. the species name). If \code{external_enfa_models}
+are provided, \code{input_data} should not be supplied.}
 
 \item{tree}{an object of class \code{phylo} containing a phylogenetic tree
-written in Newick format with all the species considered in the}
+written in Newick format with all the species considered in the
+\code{INPUT_DATA} argument. The tree needs not to be ultrametric or fully
+dichotomous.}
 
 \item{input_mask}{the geographical mask defining the spatial domain
 encompassing the background area enclosing all the species in the tree.}
@@ -41,8 +43,7 @@ will be used for evaluating model performances).}
 
 \item{boot_reps}{numeric. Number of evaluation runs performed within the
 bootstrap cross-validation scheme to evaluate ENFA and/or ENphylo models. If
-set to 0, models evaluation is skipped. \code{INPUT_DATA} argument. The tree
-needs not to be ultrametric or fully dichotomous.}
+set to 0, models evaluation is skipped.}
 
 \item{nsim}{numeric. Number of alternative phylogenies with altered topology
 and branch lengths (as compared to the reference tree) to be tested by means
@@ -151,40 +152,47 @@ The function computes vectors of marginality and specialization
 
  ENphylo automatically switches from ENFA to ENphylo algorithm for any
  species having ENFA model accuracy below the minimum evaluation score set by
- the user (i.e. \code{eval_threshold}). Overall, the function is able to
- phylogenetically impute up to 30 percent of the species on the tree. If the
- sum of species with a low number of occurrences (i.e. a number below
- \code{min_occ_enfa}) or poorly modeled with ENFA (i.e. evaluation score
- below \code{eval_threshold}) exceeds 30\%, ENphylo is set to use lower
+ the user (i.e. \code{eval_threshold}). In this case, both models are
+ performed but only the one performing best according to validation metrics
+ is retained. Overall, the function is able to phylogenetically impute up to
+ 30 percent of the species on the tree. If the sum of species with a low
+ number of occurrences (i.e. a number below \code{min_occ_enfa}) or poorly
+ modeled with ENFA (i.e. evaluation score below \code{eval_threshold})
+ exceeds 30\%, ENphylo is set to use lower \code{min_occ_enfa} or lower
  \code{eval_threshold} progressively adding poorly modeled species until the
  remaining set amounts to less than 30\% of the total. In this case, the
- function reports a warning where the new threshold value is expressed. If
- \code{ENphylo_modeling} runs the ENphylo algorithm, the outputs depends on
- the strategy adopted by the user through the \code{output_options} argument.
- If \code{output_options="full"}, all CO matrices and evaluation metrics for
- all the swapped trees are reported. With
- \code{output_options="weighted.mean"}, the output takes a subset of CO
- matrices and evaluation metrics only for those tree swapping iterations,
- achieving a predictive accuracy above the user-defined threshold, as
- indicated in the \code{eval_metric_for_imputation} and \code{eval_threshold}
- arguments. Finally, if \code{output_options="best"}, a single CO matrix and
- evaluation scores vector corresponding to the most accurate swapped tree is
- reported. If any of the tree swapping iterations under either \code{"best"}
- or \code{"weighted.mean"}  provides above-thethreshold accuracy, the
- function automatically switches to \code{"full"} strategy. In any case, the
- function returns a list element where model options and metric used to
- validate model are expressed.
+ function reports a warning where the new \code{min_occ_enfa} and/or
+ \code{eval_threshold} value is expressed. If \code{ENphylo_modeling} runs
+ the ENphylo algorithm, the outputs depends on the strategy adopted by the
+ user through the \code{output_options} argument. If
+ \code{output_options="full"}, all CO matrices and evaluation metrics for all
+ the swapped trees are reported. With \code{output_options="weighted.mean"},
+ the output takes a subset of CO matrices and evaluation metrics only for
+ those tree swapping iterations, achieving a predictive accuracy above the
+ user-defined threshold, as indicated in the
+ \code{eval_metric_for_imputation} and \code{eval_threshold} arguments.
+ Finally, if \code{output_options="best"}, a single CO matrix and evaluation
+ scores vector corresponding to the most accurate swapped tree is reported.
+ If any of the tree swapping iterations under either \code{"best"} or
+ \code{"weighted.mean"}  provides above-thethreshold accuracy, the function
+ automatically switches to \code{"full"} strategy. In any case, the function
+ returns a list element where model options and metric used to validate model
+ are expressed. Eventually, the function creates two new folders,
+ "ENphylo_enfa_models" and "ENphylo_imputed_models", in the current working
+ directory. In each of these folders, a number of new named folders equal to
+ the number of modelled species are created. Model outputs will be saved
+ therein as "model_output.RData".
 }
 \examples{
 \dontrun{
 setwd("YOUR_DIRECTORY")
 getwd()->main.dir
-url<-"https://www.dropbox.com/s/pdcf1psidyzjkjk/ENphylo\%20code\%26data.zip?dl=1"
-download.file(url,file.path(main.dir,"ENphylo code&data.zip"),mode="wb")
-unzip("ENphylo code&data.zip")
-load("example_data.RData")
-MASK_FULL<-raster::raster("variable_bio1.tif")
-external_data<-raster::stack(list.files("external_data",full.names=TRUE))
+url<-"https://www.dropbox.com/s/wm7qcuwm0nm35w2/ENphylo\%20code\%26data\%202.zip?dl=1"
+download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
+unzip("ENphylo code&data 2.zip")
+load("ENphylo code&data/example_data.RData")
+MASK_FULL<-raster::raster("ENphylo code&data/variable_bio1.tif")
+external_data<-raster::stack(list.files("ENphylo code&data/external_data",full.names=TRUE))
 
 ## NOTE: Given the size of the data, running the function is time-comsuming
 
