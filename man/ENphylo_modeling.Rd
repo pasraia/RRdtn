@@ -9,23 +9,24 @@ ENphylo_modeling(input_data, tree, input_mask, obs_col, time_col=NULL,
  min_occ_enfa=50, boot_test_perc=20, boot_reps=10, nsim=10, si=0.2, si2=0.2,
  eval_metric_for_imputation=c("AUC","TSS","CBI","SORENSEN","OMR"),
  output_options=c("full","weighted.mean","best"), eval_threshold=0.7,
- clust=0.5, external_enfa_models=NULL, spec_for_imputation=NULL)
+ clust=0.5)
 }
 \arguments{
-\item{input_data}{a list of \code{SpatialPointsDataFrame} or
-\code{sf::data.frame} objects containing species occurrence data in binary
-format (ones for presence, zero for background points) along with the
-explanatory variables to be used in ENFA or ENphylo. Each element of the
-list must be named (i.e. the species name). If \code{external_enfa_models}
-are provided, \code{input_data} should not be supplied.}
+\item{input_data}{a list of \code{sf::data.frame} objects containing species
+occurrence data in binary format (ones for presence, zero for background
+points) along with the explanatory variables to be used in ENFA or ENphylo.
+Each element of the list must be named (i.e. the species name).
+Alternatively, ENFA model outputs generated through \code{ENphylo_modeling}
+can be supplied as named elements of \code{input_data} list.}
 
 \item{tree}{an object of class \code{phylo} containing a phylogenetic tree
 written in Newick format with all the species considered in the
 \code{INPUT_DATA} argument. The tree needs not to be ultrametric or fully
 dichotomous.}
 
-\item{input_mask}{the geographical mask defining the spatial domain
-encompassing the background area enclosing all the species in the tree.}
+\item{input_mask}{an object of class \code{SpatRaster}. This is the
+geographical mask defining the spatial domain encompassing the background
+area enclosing all the species in the tree.}
 
 \item{obs_col}{character. Name of the column containing the vector of species
 occurrence data in binary format.}
@@ -72,15 +73,6 @@ output (only used if \code{output_options = "weighted.mean"} or
 \item{clust}{numeric. The proportion of cores used to train ENFA and ENphylo
 models. If \code{NULL}, parallel computing is disabled. It is set at 0.5 by
 default.}
-
-\item{external_enfa_models}{list. If not \code{NULL}, an object returned by
-the \code{ENphylo_modeling} function where all the species are modelled with
-ENFA.}
-
-\item{spec_for_imputation}{character. The names of the species among those
-provided in the \code{external_enfa_models} argument, whose ENFA models will
-be replaced with a new ENphylo model (used only if
-\code{external_enfa_models} argument is not \code{NULL}).}
 }
 \value{
 A list of length equal to the number of modelled species. For each
@@ -90,9 +82,9 @@ A list of length equal to the number of modelled species. For each
  input data formatted to run either ENFA or ENphylo algorithms. Specifically,
  the list reports \code{$input_ones} the presence data points,
  \code{$input_back} the background points, \code{$one_COORDS} the coordinates
- of presence data only, \code{$study_area} the background area, and the name
+ of presence data only, and the name
  of the columns associated to the arguments \code{OBS_col} and
- \code{TIME_factor_col}. \item \strong{$calibrated_model} a list of three
+ \code{TIME_factor_col} (if specified). \item \strong{$calibrated_model} a list of three
  elements. The output objects are different depending on whether ENFA or
  ENphylo is used to model the species:}
 
@@ -180,8 +172,9 @@ The function computes vectors of marginality and specialization
  are expressed. Eventually, the function creates two new folders,
  "ENphylo_enfa_models" and "ENphylo_imputed_models", in the current working
  directory. In each of these folders, a number of new named folders equal to
- the number of modelled species are created. Model outputs will be saved
- therein as "model_output.RData".
+ the number of modelled species are created. Model outputs and background
+ area in .tif format will be saved therein as "model_output.RData" and "study
+ area", respectively.
 }
 \examples{
 \dontrun{
@@ -191,10 +184,11 @@ url<-"https://www.dropbox.com/s/wm7qcuwm0nm35w2/ENphylo\%20code\%26data\%202.zip
 download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
 unzip("ENphylo code&data 2.zip")
 load("ENphylo code&data/example_data.RData")
-MASK_FULL<-raster::raster("ENphylo code&data/variable_bio1.tif")
-external_data<-raster::stack(list.files("ENphylo code&data/external_data",full.names=TRUE))
+### NOTE: the object enfa_all_species is no longer necessary with RRdtn >= 0.5.2 ,
+### it can be removed from the example environment
 
-## NOTE: Given the size of the data, running the function is time-comsuming
+MASK_FULL<-terra::rast("ENphylo code&data/variable_bio1.tif")
+external_data<-terra::rast(list.files("ENphylo code&data/external_data",full.names=TRUE))
 
 ## NOTE: Given the size of the data, running the function is time-comsuming
 ### CASE 1
@@ -232,33 +226,6 @@ ENmod_subsam<-ENphylo_modeling(input_data=DATA_FULL,
                               eval_metric_for_imputation="AUC",
                               eval_threshold=0.7,
                               output_options = "best")
-gc()
-
-### CASE 3
-## In case you do not trust an ENFA-derived SDM (regardless of the evaluation score)
-## you might want to run ENphylo anyway, retrieving the ENFA models and specifing
-## species k you what to look at ENphylo prediction for
-
-# Extract a species modelled with ENFA under ENphylo_modeling and 'force' ENphylo calibration on it
-sample(which(sapply(ENmod,function(x) x$call)=="calibrated_enfa"),1)->k
-
-
-ENmod3<-ENphylo_modeling(external_enfa_models=ENmod,
-                             spec_for_imputation=names(ENmod)[k],
-                             tree=tree,
-                             output_options="full",
-                             eval_metric_for_imputation="AUC")
-
-gc()
-
-### CASE 4
-# Run ENphylo under alternative model evaluation metric and strategy
-ENmod4<-ENphylo_modeling(external_enfa_models=ENmod,
-                             spec_for_imputation=names(ENmod)[k],
-                             tree=tree,
-                             output_options="best",
-                             eval_metric_for_imputation="TSS",
-                             eval_threshold = 0.4)
 gc()
 }
 }

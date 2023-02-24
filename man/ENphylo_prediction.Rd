@@ -5,8 +5,8 @@
 \title{Project the ENFA and ENphylo models into new geographical space and
  time interval}
 \usage{
-ENphylo_prediction(object, newdata, calc_method=c("raster", "terra"),
- convert.to.suitability=FALSE)
+ENphylo_prediction(object, newdata,
+ convert.to.suitability=FALSE,output.dir=NULL)
 }
 \arguments{
 \item{object}{a \code{list} returned by the \code{\link{ENphylo_modeling}}
@@ -14,30 +14,34 @@ function where all the species are modelled with ENFA or ENphylo models.}
 
 \item{newdata}{a set of explanatory variables onto which ENFA or ENphylo
 models will be projected. It could be a \code{data.frame} or a
-\code{rasterStack} object.}
-
-\item{calc_method}{character. The R package and related functions which
-\code{ENphylo_prediction} uses to obtain model predictions.}
+\code{SpatRaster} object.}
 
 \item{convert.to.suitability}{logical. If \code{TRUE},
 \code{ENphylo_prediction} projects ENFA or ENphylo model predictions in
 other areas and other time scales.}
+
+\item{output.dir}{under \code{convert.to.suitability=TRUE}, the file path
+wherein \code{ENphylo_prediction} creates an "Enphylo_prediction" folder to
+store prediction outputs for each species. If \code{newdata} is a
+\code{SpatRaster} object, \code{SpatRaster} outputs in .tif format will be
+saved. If \code{newdata} is a \code{data.frame}, \code{data.frame} outputs
+will be saved as .RData file.}
 }
 \value{
 A list of length equal to the number of modelled species. For each
  element of the list, the output objects differ depending on whether ENFA or
- ENphylo is implemented and if a raster or data.frame object is provided by
- the user as new environments where to project the model. Furthermore, if the
- \code{convert.to.suitability} is set to \code{TRUE}, each element of the
+ ENphylo is implemented and if a \code{SpatRaster} or data.frame object is
+ provided by the user as new environments where to project the model.
+ Furthermore, if the \code{convert.to.suitability=TRUE}, each element of the
  list includes the habitat suitability values in addition to model
  predictions for marginality and specialization. In any case, each element of
  the output list contains two elements:
 
-ENFA/raster
+ENFA/\code{SpatRaster}
 
 \enumerate{ \item\strong{$call}: a character specifying the algorithm
  used for the model predictions. \item\strong{$enfa_prediction}: a list of
- RasterLayer objects including marginality and specialization model
+ \code{SpatRaster} objects including marginality and specialization model
  predictions plus the habitat suitability and binary presence/absence maps
  obtained by using three different predefined thresholds: MaxSensSpec (i.e.
  maximize TSS), SensSpec (i.e. equalize sensitivity and specificity) and 10th
@@ -51,17 +55,17 @@ ENFA/data.frame
  containing marginality and specialization model predictions and the habitat
  suitability values (only if \code{convert.to.suitability = TRUE}).}
 
-ENphylo/raster
+ENphylo/\code{SpatRaster}
 
 \enumerate{ \item\strong{$call}: a character specifying the algorithm
  used for the model predictions. \item\strong{$imputed_prediction}: a list of
- raster objects including marginality and specialization model predictions.
- The layer number of each raster is equal to the integer number chosen for
- testing alternative phylogenies (i.e. \code{nsim} argument). If
- \code{convert.to.suitability = TRUE}, in addition to marginality and
- specialization, the function provides raster objects containing habitat
- suitability and binary presence/absence maps (see above) for each tested
- phylogeny.}
+ \code{SpatRaster} objects including marginality and specialization model
+ predictions. The layer number of each \code{SpatRaster} is equal to the
+ integer number chosen for testing alternative phylogenies (i.e. \code{nsim}
+ argument). If \code{convert.to.suitability = TRUE}, in addition to
+ marginality and specialization, the function provides \code{SpatRaster}
+ objects containing habitat suitability and binary presence/absence maps (see
+ above) for each tested phylogeny.}
 
 ENphylo/data.frame
 
@@ -81,9 +85,9 @@ The function projects species marginality and specialization
 \details{
 If \code{convert.to.suitability} is set as \code{TRUE},
  \code{ENphylo_prediction} uses the function
- \code{\link[adehabitatHS]{mahasuhab}} from the \pkg{adehabitatHS} R
- package (\cite{Calenge, 2006}) to compute the habitat suitability map of the
- species over a given area. The conversion of Mahalanobis distances into
+ \code{\link[adehabitatHS]{mahasuhab}} from the \pkg{adehabitatHS} R package
+ (\cite{Calenge, 2006}) to compute the habitat suitability map of the species
+ over a given area. The conversion of Mahalanobis distances into
  probabilities follows the chi-squared distribution. Specifically, we set the
  degree of freedom equal to \emph{n} rather than \emph{n-1} following
  \cite{Etherington (2019)}. To convert habitat suitability values into binary
@@ -99,8 +103,11 @@ url<-"https://www.dropbox.com/s/wm7qcuwm0nm35w2/ENphylo\%20code\%26data\%202.zip
 download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
 unzip("ENphylo code&data 2.zip")
 load("ENphylo code&data/example_data.RData")
-MASK_FULL<-raster::raster("ENphylo code&data/variable_bio1.tif")
-external_data<-raster::stack(list.files("ENphylo code&data/external_data",full.names=TRUE))
+### NOTE: the object enfa_all_species is no longer necessary with RRdtn >= 0.5.2 ,
+### it can be removed from the example environment
+
+MASK_FULL<-terra::rast("ENphylo code&data/variable_bio1.tif")
+external_data<-terra::rast(list.files("ENphylo code&data/external_data",full.names=TRUE))
 
 ## NOTE: Given the size of the data, running the function is time-comsuming
 ### CASE 1
@@ -117,7 +124,7 @@ gc()
 ENmod_pred<-ENphylo_prediction(object=ENmod[1],
                               newdata=external_data,
                               convert.to.suitability=TRUE,
-                              calc_method="terra")
+                              output.dir=main.dir)
 
 ### CASE 2
 ## Simulating a rare species by subsampling its occurrences to force run ENphylo algorithm
@@ -150,51 +157,9 @@ gc()
 ENmod_subsam_pred<-ENphylo_prediction(object=ENmod_subsam[k],
                                      newdata=external_data,
                                      convert.to.suitability=TRUE,
-                                     calc_method="terra")
+                                     output.dir=main.dir)
 
 
-### CASE 3
-## In case you do not trust an ENFA-derived SDM (regardless of the evaluation score)
-## you might want to run ENphylo anyway, retrieving the ENFA models and specifing
-## species k you what to look at ENphylo prediction for
-
-# Extract a species modelled with ENFA under ENphylo_modeling and 'force' ENphylo calibration on it
-sample(which(sapply(ENmod,function(x) x$call)=="calibrated_enfa"),1)->k
-
-
-ENmod3<-ENphylo_modeling(external_enfa_models=ENmod,
-                             spec_for_imputation=names(ENmod)[k],
-                             tree=tree,
-                             output_options="full",
-                             eval_metric_for_imputation="AUC")
-
-gc()
-
-# Transform the raster object to a data.frame object to predict on data.frame
-external_dataframe<-raster::rasterToPoints(external_data)[,-c(1,2)]
-
-# Predicting for the k species in ENmod_enfa1 output
-ENmod3_pred<-ENphylo_prediction(object=ENmod3[k],
-                                    newdata=external_dataframe,
-                                    convert.to.suitability=TRUE,
-                                    calc_method="raster")
-
-
-### CASE 4
-# Run ENphylo under alternative model evaluation metric and strategy
-ENmod4<-ENphylo_modeling(external_enfa_models=ENmod,
-                             spec_for_imputation=names(ENmod)[k],
-                             tree=tree,
-                             output_options="best",
-                             eval_metric_for_imputation="TSS",
-                             eval_threshold = 0.4)
-gc()
-
-# Predicting for the k species in ENmod_enfa2 output
-ENmod4_pred<-ENphylo_prediction(object=ENmod4[k],
-                                    newdata=external_dataframe,
-                                    convert.to.suitability=TRUE,
-                                    calc_method="terra")
 }
 }
 \references{
@@ -211,6 +176,6 @@ Freeman, E. A. & Moisen, G. (2008). PresenceAbsence: An R Package
  23(11):1-31.
 }
 \author{
-Alessandro Mondanaro, Mirko Di Febbraro, Silvia Castiglione,
- Carmela Serio, Marina Melchionna, Pasquale Raia
+Alessandro Mondanaro, Mirko Di Febbraro, Silvia Castiglione, Carmela
+ Serio, Marina Melchionna, Pasquale Raia
 }
