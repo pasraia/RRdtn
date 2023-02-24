@@ -14,19 +14,20 @@
 #'  min_occ_enfa=50, boot_test_perc=20, boot_reps=10, nsim=10, si=0.2, si2=0.2,
 #'  eval_metric_for_imputation=c("AUC","TSS","CBI","SORENSEN","OMR"),
 #'  output_options=c("full","weighted.mean","best"), eval_threshold=0.7,
-#'  clust=0.5, external_enfa_models=NULL, spec_for_imputation=NULL)
-#'@param input_data a list of \code{SpatialPointsDataFrame} or
-#'  \code{sf::data.frame} objects containing species occurrence data in binary
-#'  format (ones for presence, zero for background points) along with the
-#'  explanatory variables to be used in ENFA or ENphylo. Each element of the
-#'  list must be named (i.e. the species name). If \code{external_enfa_models}
-#'  are provided, \code{input_data} should not be supplied.
+#'  clust=0.5)
+#'@param input_data a list of \code{sf::data.frame} objects containing species
+#'  occurrence data in binary format (ones for presence, zero for background
+#'  points) along with the explanatory variables to be used in ENFA or ENphylo.
+#'  Each element of the list must be named (i.e. the species name).
+#'  Alternatively, ENFA model outputs generated through \code{ENphylo_modeling}
+#'  can be supplied as named elements of \code{input_data} list.
 #'@param tree an object of class \code{phylo} containing a phylogenetic tree
 #'  written in Newick format with all the species considered in the
 #'  \code{INPUT_DATA} argument. The tree needs not to be ultrametric or fully
 #'  dichotomous.
-#'@param input_mask the geographical mask defining the spatial domain
-#'  encompassing the background area enclosing all the species in the tree.
+#'@param input_mask an object of class \code{SpatRaster}. This is the
+#'  geographical mask defining the spatial domain encompassing the background
+#'  area enclosing all the species in the tree.
 #'@param obs_col character. Name of the column containing the vector of species
 #'  occurrence data in binary format.
 #'@param time_col character. Name of column containing the time intervals
@@ -61,13 +62,6 @@
 #'@param clust numeric. The proportion of cores used to train ENFA and ENphylo
 #'  models. If \code{NULL}, parallel computing is disabled. It is set at 0.5 by
 #'  default.
-#'@param external_enfa_models list. If not \code{NULL}, an object returned by
-#'  the \code{ENphylo_modeling} function where all the species are modelled with
-#'  ENFA.
-#'@param spec_for_imputation character. The names of the species among those
-#'  provided in the \code{external_enfa_models} argument, whose ENFA models will
-#'  be replaced with a new ENphylo model (used only if
-#'  \code{external_enfa_models} argument is not \code{NULL}).
 #'@author Alessandro Mondanaro, Mirko Di Febbraro, Silvia Castiglione, Carmela
 #'  Serio, Marina Melchionna, Pasquale Raia
 #'@details \code{ENphylo_modeling} automatically arranges the input data in a
@@ -112,8 +106,9 @@
 #'  are expressed. Eventually, the function creates two new folders,
 #'  "ENphylo_enfa_models" and "ENphylo_imputed_models", in the current working
 #'  directory. In each of these folders, a number of new named folders equal to
-#'  the number of modelled species are created. Model outputs will be saved
-#'  therein as "model_output.RData".
+#'  the number of modelled species are created. Model outputs and background
+#'  area in .tif format will be saved therein as "model_output.RData" and "study
+#'  area", respectively.
 #'@return A list of length equal to the number of modelled species. For each
 #'  element of this list, the output contains three elements: \enumerate{ \item
 #'  \strong{$call} a character specifying the algorithm used to model the
@@ -121,9 +116,9 @@
 #'  input data formatted to run either ENFA or ENphylo algorithms. Specifically,
 #'  the list reports \code{$input_ones} the presence data points,
 #'  \code{$input_back} the background points, \code{$one_COORDS} the coordinates
-#'  of presence data only, \code{$study_area} the background area, and the name
+#'  of presence data only, and the name
 #'  of the columns associated to the arguments \code{OBS_col} and
-#'  \code{TIME_factor_col}. \item \strong{$calibrated_model} a list of three
+#'  \code{TIME_factor_col} (if specified). \item \strong{$calibrated_model} a list of three
 #'  elements. The output objects are different depending on whether ENFA or
 #'  ENphylo is used to model the species:}
 #'@return  ENFA
@@ -151,12 +146,10 @@
 #'  metrics (i.e. Area Under the Curve (AUC), True Skill Statistic (TSS), Boyce
 #'  Index, Sorensen Index, and Omission Rate (OMR)) for each model evaluations
 #'  run.}
-#'@importFrom raster rasterToPoints crop extent extend raster res
+#'@importFrom terra extend res crop vect rasterize crds ext writeRaster
 #'@importFrom ape drop.tip vcv
 #'@importFrom methods extends as
 #'@importFrom parallel detectCores
-#'@importFrom sf as_Spatial
-#'@importClassesFrom sp SpatialPixelsDataFrame
 #'@export
 #'@references Rinnan, D. S., &  Lawler, J. (2019). Climate-niche factor
 #'  analysis: a spatial approach to quantifying species vulnerability to climate
@@ -173,10 +166,11 @@
 #'download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
 #'unzip("ENphylo code&data 2.zip")
 #'load("ENphylo code&data/example_data.RData")
-#'MASK_FULL<-raster::raster("ENphylo code&data/variable_bio1.tif")
-#'external_data<-raster::stack(list.files("ENphylo code&data/external_data",full.names=TRUE))
+#' ### NOTE: the object enfa_all_species is no longer necessary with RRdtn >= 0.5.2 ,
+#' ### it can be removed from the example environment
 #'
-#'## NOTE: Given the size of the data, running the function is time-comsuming
+#'MASK_FULL<-terra::rast("ENphylo code&data/variable_bio1.tif")
+#'external_data<-terra::rast(list.files("ENphylo code&data/external_data",full.names=TRUE))
 #'
 #' ## NOTE: Given the size of the data, running the function is time-comsuming
 #' ### CASE 1
@@ -215,40 +209,14 @@
 #'                               eval_threshold=0.7,
 #'                               output_options = "best")
 #' gc()
-#'
-#' ### CASE 3
-#' ## In case you do not trust an ENFA-derived SDM (regardless of the evaluation score)
-#' ## you might want to run ENphylo anyway, retrieving the ENFA models and specifing
-#' ## species k you what to look at ENphylo prediction for
-#'
-#' # Extract a species modelled with ENFA under ENphylo_modeling and 'force' ENphylo calibration on it
-#' sample(which(sapply(ENmod,function(x) x$call)=="calibrated_enfa"),1)->k
-#'
-#'
-#' ENmod3<-ENphylo_modeling(external_enfa_models=ENmod,
-#'                              spec_for_imputation=names(ENmod)[k],
-#'                              tree=tree,
-#'                              output_options="full",
-#'                              eval_metric_for_imputation="AUC")
-#'
-#' gc()
-#'
-#' ### CASE 4
-#' # Run ENphylo under alternative model evaluation metric and strategy
-#' ENmod4<-ENphylo_modeling(external_enfa_models=ENmod,
-#'                              spec_for_imputation=names(ENmod)[k],
-#'                              tree=tree,
-#'                              output_options="best",
-#'                              eval_metric_for_imputation="TSS",
-#'                              eval_threshold = 0.4)
-#' gc()
 #'}
 
 
 ENphylo_modeling<-function (input_data = NULL,
                             tree,
                             input_mask,
-                            obs_col, time_col = NULL,
+                            obs_col,
+                            time_col = NULL,
                             min_occ_enfa = 50,
                             boot_test_perc = 20,
                             boot_reps = 10,
@@ -256,195 +224,186 @@ ENphylo_modeling<-function (input_data = NULL,
                             si = 0.2,
                             si2 = 0.2,
                             eval_metric_for_imputation = c("AUC","TSS", "CBI", "SORENSEN", "OMR"),
-                            output_options = c("full", "weighted.mean", "best"),
+                            output_options = c("full","weighted.mean", "best"),
                             eval_threshold = 0.7,
-                            clust = 0.5,
-                            external_enfa_models = NULL,
-                            spec_for_imputation = NULL)
+                            clust = 0.5)
 {
-  if (is.null(external_enfa_models) && any(is.null(names(input_data))))
+  if (any(is.null(names(input_data))))
     stop("all the elements in input_data list must be provided with a species name")
-  if (is.null(external_enfa_models) && any(!names(input_data) %in%
-                                           tree$tip.label))
+  if (any(!names(input_data) %in% tree$tip.label))
     stop("all species in input_data must be on the phylogenetic tree")
   if (boot_reps > 0)
     evaluate_imputed = TRUE else evaluate_imputed = FALSE
-    if (evaluate_imputed & length(eval_metric_for_imputation) >
-        1)
-      stop("Please, set just one evaluation metric for imputation")
-    if (evaluate_imputed & length(output_options) > 1)
-      stop("Please, set just one output option")
-    if (any(tree$edge.length == 0))
-      tree$edge.length[which(tree$edge.length < max(diag(vcv(tree)))/1000)] <- tree$edge.length[which(tree$edge.length <
-                                                                                                        max(diag(vcv(tree)))/1000)] + max(diag(vcv(tree))) *
-        0.001
-    if (!is.null(clust))
-      clust <- detectCores() * clust
-    if (is.null(external_enfa_models)) {
-      if (sum(sapply(input_data, function(x) sum(as.data.frame(x)[,
-                                                                  obs_col])) < min_occ_enfa) >= length(input_data) *
-          0.3) {
-        xx <- sort(sapply(input_data, function(x) sum(as.data.frame(x)[,
-                                                                       obs_col])))[ceiling(length(input_data) * 0.1)]
-        min_occ_enfa <- xx + 1
-        warning(paste("The number of species with occurrences below min_occ_enfa exceeds the 30% of total species.\n                      min_occ_enfa value was reduced to",
-                      xx, sep = " "))
+  if (evaluate_imputed & length(eval_metric_for_imputation) >
+      1)
+    stop("Please, set just one evaluation metric for imputation")
+  if (evaluate_imputed & length(output_options) > 1)
+    stop("Please, set just one output option")
+  if (any(tree$edge.length == 0))
+    tree$edge.length[which(tree$edge.length < max(diag(vcv(tree)))/1000)] <- tree$edge.length[which(tree$edge.length <
+                                                                                                      max(diag(vcv(tree)))/1000)] + max(diag(vcv(tree))) *
+      0.001
+  if (!is.null(clust))
+    clust <- detectCores() * clust
+  start_data <- input_data[sapply(input_data, function(xx) class(xx)[1] ==
+                                    "sf")]
+  add_data <- input_data[sapply(input_data, function(xx) class(xx)[1] !=
+                                  "sf")]
+  cc <- c(sapply(start_data, function(x) sum(as.data.frame(x)[,
+                                                              obs_col])) < min_occ_enfa, as.numeric(sapply(add_data,
+                                                                                                           function(x) nrow(x[[1]]$formatted_data$input_ones))) <
+            min_occ_enfa)
+  if (sum(cc)>= length(input_data) * 0.3) {
+    xx <- sort(c(sapply(start_data, function(x) sum(as.data.frame(x)[,
+                                                                     obs_col])), as.numeric(sapply(add_data, function(x) nrow(x[[1]]$formatted_data$input_ones)))))[ceiling(length(input_data) *
+                                                                                                                                                                              0.1)]
+    min_occ_enfa <- xx + 1
+    warning(paste("The number of species with occurrences below min_occ_enfa exceeds the 30% of total species.\n min_occ_enfa value was reduced to",
+                  xx, sep = " "))
+  }
+  all_models <- mapply(function(data, nam) {
+    cat(paste("\n", "Modelling", nam, "with ENFA", "\n"))
+    if (is.null(time_col)) {
+      prova <- subset(data, as.data.frame(data)[, obs_col] ==
+                        0)
+    }else {
+      prova <- subset(data, as.data.frame(data)[, obs_col] ==
+                        0 & as.data.frame(data)[, time_col] == unique(as.data.frame(data)[,
+                                                                                          time_col])[1])
+    }
+    qq <- input_mask
+    vv <- prova[, obs_col]
+    vv <- vect(vv)
+    ex <- extract(qq, vv)
+    qq <- rasterize(vv, qq)
+    qq_RTP <- apply(crds(qq), 2, range)
+    qq_RTP <- ext(qq_RTP[, 1], qq_RTP[, 2])
+    qq_RTP <- extend(qq_RTP, res(qq)[1])
+    maskk <- crop(qq, qq_RTP)
+    mydata <- DATA_PREPARATION(species_input_data = data,
+                               obs_col = obs_col, input_mask = maskk, time_col = time_col)
+    if (nrow(mydata$ones_coords) >= min_occ_enfa) {
+      mymodel <- ENFA_CALIBRATION(formatted_data = mydata,
+                                  boot_test_perc = boot_test_perc, boot_reps = boot_reps,
+                                  sig_axes_selection = "brStick", clust = clust)
+      cat(paste("\n", "Modelling", nam, "with ENFA: done.", "\n"))
+    }else {
+      mymodel = NULL
+      cat(paste("\n", "Modelling", nam, "with ENFA: skipped.", "\n"))
+    }
+    if (!is.null(mymodel)) {
+      model_outputs <- list(call = "calibrated_enfa", formatted_data = mydata,
+                            calibrated_model = mymodel)
+      model_outputs <- list(model_outputs)
+      names(model_outputs) <- nam
+      dir.create(file.path("ENphylo_enfa_models", nam),
+                 recursive = TRUE)
+
+      writeRaster(model_outputs[[1]]$formatted_data$study_area,
+                  filename = paste0("ENphylo_enfa_models/", nam, "/study_area.tif"),
+                  overwrite=TRUE)
+
+      model_outputs[[1]]$formatted_data$study_area<-NULL
+      save(model_outputs, file = paste0("ENphylo_enfa_models/",
+                                        nam, "/output_model.RData"))
+    }
+    mydata$study_area<-NULL
+    return(list(call = "calibrated_enfa", formatted_data = mydata,
+                calibrated_model = mymodel))
+  }, data = start_data, nam = names(start_data), SIMPLIFY = FALSE)
+  names(all_models) <- names(start_data)
+  if (length(add_data) > 0) {
+    add_mm <- unlist(add_data, recursive = FALSE, use.names = FALSE)
+    names(add_mm) <- names(add_data)
+  } else add_mm <- NULL
+  all_models <- c(add_mm, all_models)
+  all_models <- all_models[match(names(input_data), names(all_models))]
+  enf_mod <- all_models
+  if (evaluate_imputed) {
+    check <- sapply(all_models, function(k) {
+      if (!is.null(k$calibrated_model)) {
+        mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
+          eval_threshold
       }
-      all_models <- mapply(function(data, nam) {
-        cat(paste("\n", "Modelling", nam, "\n"))
-        if (is.null(time_col)) {
-          prova <- subset(data, as.data.frame(data)[, obs_col] ==
-                            0)
-        } else {
-          prova <- subset(data, as.data.frame(data)[, obs_col] ==
-                            0 & as.data.frame(data)[, time_col] == unique(as.data.frame(data)[,
-                                                                                              time_col])[1])
-        }
-        qq <- input_mask
-        vv <- prova[, obs_col]
-        if (!extends(class(vv), "Spatial"))
-          vv <- as_Spatial(vv)
-        qq <- as(qq, "SpatialPixelsDataFrame")
-        qq <- qq[vv, ]
-        qq <- raster(qq)
-        qq_RTP <- apply(rasterToPoints(qq)[, 1:2], 2, range)
-        qq_RTP <- extent(qq_RTP[, 1], qq_RTP[, 2])
-        qq_RTP <- extend(qq_RTP, res(qq)[1])
-        maskk <- crop(qq, qq_RTP)
-        if (!extends(class(data), "Spatial"))
-          data <- as_Spatial(data)
-        mydata <- DATA_PREPARATION(species_input_data = data,
-                                   obs_col = obs_col, input_mask = maskk, time_col = time_col)
-        if (length(mydata$ones_coords) >= min_occ_enfa) {
-          mymodel <- ENFA_CALIBRATION(formatted_data = mydata,
-                                      boot_test_perc = boot_test_perc, boot_reps = boot_reps,
-                                      sig_axes_selection = "brStick", clust = clust)
-        } else mymodel = NULL
-
-        if(!is.null(mymodel)){
-          model_outputs <-list(call = "calibrated_enfa", formatted_data = mydata,
-                               calibrated_model = mymodel)
-          list(model_outputs)->model_outputs
-          names(model_outputs)<-nam
-          dir.create(file.path("ENphylo_enfa_models", nam),
-                     recursive = TRUE)
-          save(model_outputs, file = paste0("ENphylo_enfa_models/",
-                                            nam, "/output_model.RData"))
-        }
-
-        return(list(call = "calibrated_enfa", formatted_data = mydata,
-                    calibrated_model = mymodel))
-
-      }, data = input_data, nam = names(input_data), SIMPLIFY = FALSE)
-      names(all_models) <- names(input_data)
-      enf_mod <- all_models
-      if (evaluate_imputed) {
+      else TRUE
+    })
+    vv <- eval_threshold
+    if (sum(check) > (length(input_data) * 30/100)) {
+      repeat {
+        vv <- vv * 0.95
         check <- sapply(all_models, function(k) {
           if (!is.null(k$calibrated_model)) {
             mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
-              eval_threshold
-          } else TRUE
-        })
-        vv <- eval_threshold
-        if (sum(check) > (length(input_data) * 30/100)) {
-          repeat {
-            vv <- vv * 0.95
-            check <- sapply(all_models, function(k) {
-              if (!is.null(k$calibrated_model)) {
-                mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
-                  vv
-              } else TRUE
-            })
-            if (sum(check) <= (length(input_data) * 30/100))
-              break
+              vv
           }
-          all_models <- lapply(all_models, function(k) {
-            if (!is.null(k$calibrated_model)) {
-              if (mean(k$calibrated_model$evaluation[,
-                                                     eval_metric_for_imputation]) < vv) {
-                k <- list(call = k$call, formatted_data = k$formatted_data,
-                          calibrated_model = NULL)
-              }
-            }
-            k
-          })
-          warning(paste("eval_threshold value for ENFA models evaluation was reduced to",
-                        vv, "because more than 30% of species have to be modelled with phylogenetic imputation",
-                        sep = " "))
-        } else {
-          all_models <- lapply(all_models, function(k) {
-            if (!is.null(k$calibrated_model)) {
-              if (mean(k$calibrated_model$evaluation[,
-                                                     eval_metric_for_imputation]) < vv) {
-                k <- list(call = k$call, formatted_data = k$formatted_data,
-                          calibrated_model = NULL)
-              }
-            }
-            k
-          })
-        }
-      }
-      if (all(sapply(all_models, function(k) !is.null(k$calibrated_model)) ==
-              TRUE)) {
-        warning("All species are modelled with Enfa")
-      } else {
-        if (any(tree$tip.label %in% names(all_models) ==
-                FALSE)) {
-          sp <- tree$tip.label[!tree$tip.label %in% names(all_models)]
-          tree <- drop.tip(tree, sp)
-          warning(paste(as.data.frame(sp), " not present in input_data. They will be dropped from the tree",
-                        sep = ""))
-        }
-        if (nsim == 0)
-          stop("Please, set nsim as an integer >0")
-        myimputed <- IMPUTED_CALIBRATION(ENFA_output = all_models,
-                                         tree = tree, nsim = nsim, si = si, si2 = si2,
-                                         clust = clust, evaluate = evaluate_imputed, boot_test_perc = boot_test_perc,
-                                         boot_reps = boot_reps, output_options = output_options,
-                                         eval.metric = eval_metric_for_imputation, eval_threshold = eval_threshold)
-        sel <- lapply(names(myimputed), function(x) {
-          if (is.null(enf_mod[x][[1]]$calibrated_model)) {
-            a = 0
-          } else {
-            a <- mean(enf_mod[x][[1]]$calibrated_model$evaluation[,
-                                                                  eval_metric_for_imputation])
-          }
-          b <- mean(myimputed[x][[1]]$evaluation[, eval_metric_for_imputation])
-          b > a
+          else TRUE
         })
-        myimputed <- myimputed[which(sel == TRUE)]
-        myimputed <- mapply(function(x, y) {
-          list(call = "calibrated_imputed", formatted_data = y$formatted_data,
-               calibrated_model = x)
-        }, x = myimputed, y = all_models[names(myimputed)],
-        SIMPLIFY = FALSE)
-        w <- match(names(myimputed), names(enf_mod))
-        enf_mod[w] <- myimputed
-        all_models <- enf_mod
+        if (sum(check) <= (length(input_data) * 30/100))
+          break
       }
-    } else {
-      all_models <- external_enfa_models
-      if (any(tree$tip.label %in% names(all_models) == FALSE)) {
-        sp <- tree$tip.label[!tree$tip.label %in% names(all_models)]
-        tree <- drop.tip(tree, sp)
-      }
-      if (is.null(spec_for_imputation))
-        stop("Please, specify which species to impute")
-      if (nsim == 0)
-        stop("Please, set nsim as an integer >0")
-      myimputed <- IMPUTED_CALIBRATION(ENFA_output = all_models,
-                                       tree = tree, nsim = nsim, si = si, si2 = si2, clust = clust,
-                                       spec_for_imputation = spec_for_imputation, evaluate = evaluate_imputed,
-                                       boot_test_perc = boot_test_perc, boot_reps = boot_reps,
-                                       output_options = output_options, eval.metric = eval_metric_for_imputation,
-                                       eval_threshold = eval_threshold)
-      myimputed <- mapply(function(x, y) {
-        list(call = "calibrated_imputed", formatted_data = y$formatted_data,
-             calibrated_model = x)
-      }, x = myimputed, y = all_models[names(myimputed)], SIMPLIFY = FALSE)
-      w <- match(names(myimputed), names(all_models))
-      all_models[w] <- myimputed
+      all_models <- lapply(all_models, function(k) {
+        if (!is.null(k$calibrated_model)) {
+          if (mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
+              vv) {
+            k <- list(call = k$call, formatted_data = k$formatted_data,
+                      calibrated_model = NULL)
+          }
+        }
+        k
+      })
+      warning(paste("eval_threshold value for ENFA models evaluation was reduced to",
+                    vv, "because more than 30% of species have to be modelled with phylogenetic imputation",
+                    sep = " "))
     }
-    return(all_models)
+    else {
+      all_models <- lapply(all_models, function(k) {
+        if (!is.null(k$calibrated_model)) {
+          if (mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
+              vv) {
+            k <- list(call = k$call, formatted_data = k$formatted_data,
+                      calibrated_model = NULL)
+          }
+        }
+        k
+      })
+    }
+  }
+  if (all(sapply(all_models, function(k) !is.null(k$calibrated_model)) ==
+          TRUE)) {
+    warning("All species are modelled with Enfa")
+  }else {
+    if (any(tree$tip.label %in% names(all_models) == FALSE)) {
+      sp <- tree$tip.label[!tree$tip.label %in% names(all_models)]
+      tree <- drop.tip(tree, sp)
+      warning(paste(as.data.frame(sp), " not present in input_data. They will be dropped from the tree",
+                    sep = ""))
+    }
+    if (nsim == 0)
+      stop("Please, set nsim as an integer >0")
+    myimputed <-IMPUTED_CALIBRATION(ENFA_output = all_models,
+                                    tree = tree, nsim = nsim, si = si, si2 = si2, clust = clust,
+                                    evaluate = evaluate_imputed, boot_test_perc = boot_test_perc,
+                                    boot_reps = boot_reps, output_options = output_options,
+                                    eval.metric = eval_metric_for_imputation, eval_threshold = eval_threshold)
+    sel <- lapply(names(myimputed), function(x) {
+      if (is.null(enf_mod[x][[1]]$calibrated_model)) {
+        TRUE
+      }else{
+        a <- mean(enf_mod[x][[1]]$calibrated_model$evaluation[,
+                                                              eval_metric_for_imputation])
+        b <- mean(myimputed[x][[1]]$evaluation[, eval_metric_for_imputation])
+        b > a
+      }
+    })
+    myimputed <- myimputed[which(sel == TRUE)]
+    myimputed <- mapply(function(x, y) {
+      list(call = "calibrated_imputed", formatted_data = y$formatted_data,
+           calibrated_model = x)
+    }, x = myimputed, y = all_models[names(myimputed)], SIMPLIFY = FALSE)
+    w <- match(names(myimputed), names(enf_mod))
+    enf_mod[w] <- myimputed
+    all_models <- enf_mod
+  }
+  return(all_models)
 }
 
