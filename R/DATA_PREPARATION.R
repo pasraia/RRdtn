@@ -3,16 +3,14 @@
 #' @importFrom grDevices dev.new
 #' @importFrom graphics points
 
-DATA_PREPARATION<-function (species_input_data,
-                            obs_col = "OBS",
-                            input_mask,
-                            time_col = NULL) {
+DATA_PREPARATION<-function(species_input_data,
+                           obs_col = "OBS",
+                           input_mask,
+                           time_col = NULL){
   if (!crs(input_mask, proj = TRUE) == st_crs(species_input_data)$proj4string |
       is.na(crs(input_mask, proj = TRUE)) | is.na(st_crs(species_input_data)$proj4string))
     stop("some missing or not-matching projections in input data or background area")
-
-  occ.desaggregation.RASTER<-function (df, colxy, rast, plot = T)
-  {
+  occ.desaggregation.RASTER <- function(df, colxy, rast, plot = T) {
     df_ini <- df
     cacca <- cellFromXY(rast, df[, colxy])
     if (any(is.na(cacca))) {
@@ -44,49 +42,47 @@ DATA_PREPARATION<-function (species_input_data,
     if (max(l) == 1)
       return(df)
   }
-
   species_input_data <- cbind(st_coordinates(species_input_data),
                               as.data.frame(st_drop_geometry(species_input_data)))
-
-  species_input_data0<-subset(species_input_data, species_input_data[, obs_col]==0)
-  species_input_data<-subset(species_input_data, species_input_data[, obs_col]==1)
-
-
-  if (is.null(time_col)){
-    occ.desaggregation.RASTER(species_input_data, 1:2, rast=input_mask, plot=F)->species_input_data2
-    if(nrow(species_input_data2)<nrow(species_input_data))
-      warning(paste(nrow(species_input_data)-nrow(species_input_data2),
+  species_input_data0 <- subset(species_input_data, species_input_data[,
+                                                                       obs_col] == 0)
+  species_input_data <- subset(species_input_data, species_input_data[,
+                                                                      obs_col] == 1)
+  if (is.null(time_col)) {
+    species_input_data2 <- occ.desaggregation.RASTER(species_input_data,
+                                                     1:2, rast = input_mask, plot = F)
+    if (nrow(species_input_data2) < nrow(species_input_data))
+      warning(paste(nrow(species_input_data) - nrow(species_input_data2),
                     "duplicated points into raster cells were found and removed!"))
-    species_input_data<-species_input_data2
-  } else{
-    ss<-split(species_input_data, species_input_data[,time_col])
-    species_input_data2<-lapply(ss, function(x){
-      occ.desaggregation.RASTER(x, 1:2, rast=input_mask, plot=F)
+    species_input_data <- species_input_data2
+  }else {
+    ss <- split(species_input_data, species_input_data[,
+                                                       time_col])
+    species_input_data2 <- lapply(ss, function(x) {
+      occ.desaggregation.RASTER(x, 1:2, rast = input_mask,
+                                plot = F)
     })
-    species_input_data2<-do.call(rbind, species_input_data2)
-
-    if(nrow(species_input_data2)<nrow(species_input_data))
-      warning(paste(nrow(species_input_data)-nrow(species_input_data2),
+    species_input_data2 <- do.call(rbind, species_input_data2)
+    if (nrow(species_input_data2) < nrow(species_input_data))
+      warning(paste(nrow(species_input_data) - nrow(species_input_data2),
                     "duplicated points into raster cells were found and removed!"))
-    species_input_data<-species_input_data2
+    species_input_data <- species_input_data2
   }
-
-  species_input_data<-rbind(species_input_data, species_input_data0)
-
+  species_input_data <- rbind(species_input_data, species_input_data0)
   colnames(species_input_data)[1:2] <- c("coordsX", "coordsY")
   coords_cols <- grep("coords", colnames(species_input_data))
   ones <- subset(species_input_data, species_input_data[, obs_col] ==
                    1)
   back <- subset(species_input_data, species_input_data[, obs_col] ==
                    0)
-  input_ones <- data.frame(ones[, -coords_cols], geoID = extract(input_mask,
-                                                                 ones[, coords_cols], cells = TRUE)[, "cell"])
-  input_back <- data.frame(back[, -coords_cols], geoID = extract(input_mask,
-                                                                 back[, coords_cols], cells = TRUE)[, "cell"])
+  input_ones <- cbind.data.frame(ones[, -coords_cols], geoID = extract(input_mask,
+                                                                       ones[, coords_cols], cells = TRUE)[, "cell"])
+  input_back <- cbind.data.frame(back[, -coords_cols], geoID = extract(input_mask,
+                                                                       back[, coords_cols], cells = TRUE)[, "cell"])
   if (!all(input_ones$geoID %in% input_back$geoID))
     stop("some points fall outside of the background area")
   ones_coords <- ones[, coords_cols]
-  rownames(ones_coords)<-NULL
+  rownames(ones_coords) <- NULL
   OUTPUT <- list(call = "input_data", input_ones = input_ones,
                  input_back = input_back, obs_col = obs_col, geoID_col = "geoID",
                  time_col = time_col, ones_coords = ones_coords, study_area = input_mask)

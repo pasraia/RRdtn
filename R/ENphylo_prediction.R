@@ -155,409 +155,397 @@
 ENphylo_prediction<-function (object,
                               newdata,
                               convert.to.suitability = FALSE,
-                              output.dir=NULL){
-                                if (!(extends(class(newdata), "SpatRaster") | is.matrix(newdata) |
-                                      is.data.frame(newdata)))
-                                  stop("Please, provide newdata as a SpatRaster object or a data.frame")
-
-                                x <- newdata
-                                if (is.null(names(object))) {
-                                  if (object[[1]]$call == "enfa") {
-                                    U <- object[[1]]$co
-                                    f1 <- function(y) y %*% U
-                                    if (extends(class(x), "SpatRaster")) {
-                                      if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                                                 names(x))))
-                                        stop("Variable names in newdata must match with those used to calibrate models")else {
-                                          x <- x[[match(rownames(U), names(x))]]
-                                        }
-                                      ras <- app(x, fun = f1)
-                                      names(ras) <- names(object[[1]]$sf)
-                                    }else {
-                                      if (!(all(colnames(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                                                    colnames(x))))
-                                        stop("Variable names in newdata must match with those used to calibrate models")else {
-                                          x <- x[, match(rownames(U), colnames(x))]
-                                        }
-                                      ras <- t(apply(x, 1, f1))
-                                      colnames(ras) <- names(object[[1]]$sf)
-                                      ras <- as.data.frame(ras)
-                                    }
-                                  }
-                                  if (object[[1]]$call == "calibrated_enfa") {
-                                    U <- object[[1]]$full_model$co
-                                    f1 <- function(y) y %*% U
-                                    if (extends(class(x), "SpatRaster")) {
-                                      if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                                                 names(x))))
-                                        stop("Variable names in newdata must match with those used to calibrate models")else {
-                                          x <- x[[match(rownames(U), names(x))]]
-                                        }
-
-                                      ras <- app(x, fun = f1)
-                                      names(ras) <- names(object[[1]]$full_model$sf)
-                                    }else {
-                                      if (!(all(colnames(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                                                    colnames(x))))
-                                        stop("Variable names in newdata must match with those used to calibrate models")else {
-                                          x <- x[, match(rownames(U), colnames(x))]
-                                        }
-                                      ras <- t(apply(x, 1, f1))
-                                      colnames(ras) <- names(object[[1]]$full_model$sf)
-                                      ras <- as.data.frame(ras)
-                                    }
-                                  }
-                                  ras <- list(call = "enfa_prediction", enfa_prediction = ras)
-                                }else {
-                                  cat(paste("\n", "PREDICTING ENFA/IMPUTATION", "\n"))
-                                  ras <- pblapply(object, function(ob) {
-                                    if (ob$call == "calibrated_enfa") {
-                                      U <- ob$calibrated_model$full_model$co
-                                      f1 <- function(y) y %*% U
-                                      if (extends(class(x), "SpatRaster")) {
-                                        if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                                                   names(x))))
-                                          stop("Variable names in newdata must match with those used to calibrate models")else {
-                                            x <- x[[match(rownames(U), names(x))]]
-                                          }
-
-                                        ras <- app(x, fun = f1)
-                                        names(ras) <- names(ob$calibrated_model$full_model$sf)
-                                        ras <- ras[[1:ob$calibrated_model$full_model$significant_axes]]
-                                        ras
-                                      }else {
-                                        if (!(all(colnames(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                                                      colnames(x))))
-                                          stop("Variable names in newdata must match with those used to calibrate models")else {
-                                            x <- x[, match(rownames(U), colnames(x))]
-                                          }
-                                        ras <- t(apply(x, 1, f1))
-                                        colnames(ras) <- names(ob$calibrated_model$full_model$sf)
-                                        ras <- as.data.frame(ras[, 1:ob$calibrated_model$full_model$significant_axes])
-                                        ras
-                                      }
-                                      ras <- list(call = "enfa_prediction", enfa_prediction = ras)
-                                    }
-
-                                    if (ob$call == "calibrated_imputed") {
-                                      ras <- lapply(ob$calibrated_model$co, function(co) {
-                                        U <- co
-                                        f1 <- function(y) y %*% U
-                                        if (extends(class(x), "SpatRaster")) {
-                                          if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                                                     names(x))))
-                                            stop("Variable names in newdata must match with those used to calibrate models")else {
-                                              x <- x[[match(rownames(U), names(x))]]
-                                            }
-                                          ras <- app(x, fun = f1)
-                                          names(ras) <- colnames(U)
-                                          ras
-                                        }else {
-                                          if (!(all(colnames(x) %in% rownames(U)) &
-                                                all(rownames(U) %in% colnames(x))))
-                                            stop("Variable names in newdata must match with those used to calibrate models")else {
-                                              x <- x[, match(rownames(U), colnames(x))]
-                                            }
-                                          ras <- t(apply(x, 1, f1))
-                                          colnames(ras) <- colnames(U)
-                                          ras <- as.data.frame(ras)
-                                        }
-                                      })
-
-                                      if (extends(class(x), "SpatRaster")) {
-                                        ras <- lapply(1:nlyr(ras[[1]]), function(i) rast(lapply(ras,
-                                                                                                "[[", i)))
-                                        names(ras)[1] <- "Marg"
-                                        names(ras)[-1] <- paste("Spec", 1:(length(ras) -
-                                                                             1), sep = "")
-                                        ras <- lapply(ras, function(o) {
-                                          if (any(grepl("evaluation", names(ob$calibrated_model)))) {
-                                            names(o) <- rownames(ob$calibrated_model$evaluation)
-                                          }else {
-                                            names(o) <- paste("swap", 1:nlyr(o),
-                                                              sep = "_")
-                                          }
-                                          o
-                                        })
-                                      }else {
-                                        if (any(grepl("evaluation", names(ob$calibrated_model)))) {
-                                          ras <- mapply(function(x, y) {
-                                            x$swap_rep <- y
-                                            x
-                                          }, x = ras, y = rownames(ob$calibrated_model$evaluation),
-                                          SIMPLIFY = FALSE)
-                                        }else {
-                                          ras <- mapply(function(x, y) {
-                                            x$swap_rep <- y
-                                            x
-                                          }, x = ras, y = paste("swap", 1:length(ras),
-                                                                sep = "_"), SIMPLIFY = FALSE)
-                                        }
-                                      }
-
-                                      if (ob$calibrated_model$output_options[1] ==
-                                          "best" & extends(class(x), "SpatRaster")) {
-                                        ras2 <- ras
-                                        ras <- rast(ras)
-                                        names(ras) <- paste(names(ras2), strsplit(names(ras2[[1]]),
-                                                                                  "[.]")[[1]][1], sep = "_")
-                                        ras
-                                      }
-                                      if (ob$calibrated_model$output_options[1] ==   ### to check
-                                          "weighted.mean" & ob$calibrated_model$output_options[2] ==
-                                          "OMR")
-                                        warning("The weighted mean of model predictions using OMR provides misleading results")
-                                      if (ob$calibrated_model$output_options[1] ==
-                                          "weighted.mean") {
-                                        if (extends(class(x), "SpatRaster")) {
-                                          ras <- list(Reduce("+", Map("*", lapply(1:nlyr(ras[[1]]),
-                                                                                  function(i) rast(lapply(ras, "[[", i))),
-                                                                      ob$calibrated_model$evaluation[, ob$calibrated_model$output_options[2]]))/nlyr(ras[[1]]))
-                                          rr <- lapply(1:nlyr(ras[[1]]), function(xx) {
-                                            dd <- ras[[1]][[xx]]
-                                            dd
-                                          })
-                                          rr <- rast(rr)
-                                          names(rr) <- paste(names(ras[[1]]), "swap_weighted",
-                                                             sep = "_")
-                                          ras <- rr
-                                          ras
-                                        }else {
-                                          ras <- list(Reduce("+", Map("*", lapply(ras,
-                                                                                  function(xx) xx[, !grepl("swap_rep", colnames(xx))]),
-                                                                      ob$calibrated_model$evaluation[, ob$calibrated_model$output_options[2]]))/length(ras))
-                                          ras[[1]]$swap_rep <- "swap_weighted"
-                                          ras
-                                        }
-                                      }
-                                      ras <- list(call = "imputed_prediction", imputed_prediction = ras)
-                                    }
-                                    return(ras)
-                                  })
-                                }
-                                if (convert.to.suitability) {
-                                  cat(paste("\n", "CONVERTING PREDICTED VALUES TO SUITABILITY",
-                                            "\n"))
-                                  if (extends(class(x), "SpatRaster")) {
-                                    reference <- as.data.frame(x)
-                                  }else reference <- x
-                                  ras_suitability <- pblapply(names(object), function(sp) {
-                                    cat(paste("\n", sp, "\n"))
-                                    mydata <- object[[sp]]$formatted_data
-                                    obs_col <- mydata$obs_col
-                                    time_col <- mydata$time_col
-                                    geoID_col <- mydata$geoID_col
-                                    reference$type <- factor("reference", levels = c("obs_background",
-                                                                                     "reference"))
-                                    reference[, obs_col] <- 0
-                                    if (nrow(mydata$input_back) > 10000) {
-                                      independent_data_for_pred <- rbind(mydata$input_ones,
-                                                                         mydata$input_back[sample(nrow(mydata$input_back),
-                                                                                                  10000), ])
-                                    }else independent_data_for_pred <- rbind(mydata$input_ones,
-                                                                             mydata$input_back)
-                                    obs_background <- independent_data_for_pred
-                                    obs_background <- obs_background[, !grepl(geoID_col,
-                                                                              colnames(obs_background))]
-                                    obs_background$type <- factor("obs_background", levels = c("obs_background",
-                                                                                               "reference"))
-                                    obs_background <- obs_background[, match(colnames(reference),
-                                                                             colnames(obs_background))]
-                                    ras_for_proj <- rbind(reference, obs_background)
-                                    ras_obs <- ras_for_proj[, obs_col, drop = FALSE]
-                                    ras_type <- ras_for_proj[, "type", drop = FALSE]
-                                    ras_for_proj <- ras_for_proj[, !grepl(paste(c("type",
-                                                                                  obs_col), collapse = "|"), colnames(ras_for_proj))]
-                                    if (object[[sp]]$call == "calibrated_enfa") {
-                                      U <- object[[sp]]$calibrated_model$full_model$co
-                                      f1 <- function(y) y %*% U
-                                      ma1 <- t(apply(as.matrix(ras_for_proj), 1, f1))
-                                      colnames(ma1) <- colnames(U)
-                                      ma1 <- as.data.frame(scale(ma1[, 1:object[[sp]]$calibrated_model$full_model$significant_axes]))
-                                      ma1 <- list(ma1)
-                                    }
-                                    if (object[[sp]]$call == "calibrated_imputed") {
-                                      ma1 <- lapply(1:length(object[[sp]]$calibrated_model$co),
-                                                    function(kk) {
-                                                      U <- object[[sp]]$calibrated_model$co[[kk]]
-                                                      f1 <- function(y) y %*% U
-                                                      ma1 <- t(apply(as.matrix(ras_for_proj), 1,
-                                                                     f1))
-                                                      colnames(ma1) <- colnames(U)
-                                                      ma1 <- as.data.frame(scale(ma1))
-                                                    })
-                                      if (object[[sp]]$calibrated_model$output_options[1] ==
-                                          "weighted.mean") {
-                                        ma1 <- list(Reduce("+", Map("*", ma1, object[[sp]]$calibrated_model$evaluation[,
-                                                                                                                       object[[sp]]$calibrated_model$output_options[2]]))/length(ma1))
-                                      }else ma1 <- ma1
-                                    }
-                                    suitability_final <- lapply(1:length(ma1), function(kk) {
-                                      repeat {
-                                        hsm1 <- suppressWarnings(try(mahasuhab.custom(x = ma1[[kk]],
-                                                                                              pts = ma1[[kk]][which(ras_obs == 1), ]),
-                                                                     silent = TRUE))
-                                        if (inherits(hsm1, "try-error")) {
-                                          ma1[[kk]] <- ma1[[kk]][, -ncol(ma1[[kk]]),
-                                                                 drop = FALSE]
-                                          warning(paste("Dimensionality was reduced to",
-                                                        ncol(ma1[[kk]]), "axes"))
-                                        }else break
-                                      }
-
-                                      ma1[[kk]]$Suitability <- hsm1$MD
-                                      reference <- ma1[[kk]][which(ras_type == "reference"),
-                                      ]
-                                      pred_for_th <- ma1[[kk]][which(ras_type == "obs_background"),
-                                      ]
-                                      data_for_th <- data.frame(ID = 1:nrow(pred_for_th),
-                                                                observed = obs_background$OBS, pred = pred_for_th$Suitability)
-                                      suppressWarnings(TH <- optimal.thresholds(data_for_th)[2:3,
-                                                                                             2])
-                                      TH <- c(TH, quantile(data_for_th[which(data_for_th$observed ==
-                                                                               1), ]$pred, 0.1))
-                                      if (extends(class(x), "SpatRaster")) {
-                                        hsm1 <- x[[1]]
-                                        hsm1[!is.na(hsm1)] <- reference$Suitability
-                                        names(hsm1) <- "Suitability"
-                                        if (object[[sp]]$call == "calibrated_imputed") {
-                                          if (any(grepl("evaluation", names(object[[sp]]$calibrated_model)))) {
-                                            if (object[[sp]]$calibrated_model$output_options[1] ==
-                                                "best") {
-                                              names(hsm1) <- paste("Suitability", rownames(object[[sp]]$calibrated_model$evaluation)[kk],
-                                                                   sep = "_")
-                                            }
-                                            if (object[[sp]]$calibrated_model$output_options[1] ==
-                                                "weighted.mean") {
-                                              names(hsm1) <- paste(names(hsm1), "swap_weighted",
-                                                                   sep = "_")
-                                            }
-                                            if (object[[sp]]$calibrated_model$output_options[1] ==
-                                                "full") {
-                                              names(hsm1) <- paste("Suitability", "swap",
-                                                                   kk, sep = "_")
-                                            }
-                                          }else names(hsm1) <- paste("Suitability",
-                                                                     "swap", kk, sep = "_")
-                                        }
-                                      }else {
-                                        hsm1 <- reference[, "Suitability", drop = FALSE]
-                                      }
-                                      return(list(TH, hsm1))
-                                    })
-
-                                    if (object[[sp]]$call == "calibrated_enfa") {
-                                      if (extends(class(x), "SpatRaster")) {
-                                        thh <- lapply(suitability_final, function(xx) {
-                                          xx <- rast(sapply(xx[[1]], function(yy) bm_BinaryTransformation(xx[[2]],
-                                                                                                          yy)))
-                                          names(xx) <- c("SensSpec", "MaxSensSpec",
-                                                         "TenPerc")
-                                          xx
-                                        })
-                                        names(thh[[1]]) <- paste("Binary", names(thh[[1]]),
-                                                                 sep = "_")
-                                        ras[[sp]]$enfa_prediction <- c(ras[[sp]]$enfa_prediction,
-                                                                       suitability_final[[1]][[2]], thh[[1]])
-                                      }else {
-                                        ras[[sp]]$enfa_prediction <- mapply(function(a,
-                                                                                     b) {
-                                          cbind(a, b[[2]])
-                                        }, a = list(ras[[sp]]$enfa_prediction), b = suitability_final,
-                                        SIMPLIFY = FALSE)
-                                      }
-                                      ras_final <- list(call = "enfa_prediction", enfa_prediction = ras[[sp]]$enfa_prediction)
-                                    }
-                                    if (object[[sp]]$call == "calibrated_imputed") {
-                                      if (extends(class(x), "SpatRaster")) {
-                                        thh <- lapply(suitability_final, function(xx) {
-                                          xx <- rast(sapply(xx[[1]], function(yy) bm_BinaryTransformation(xx[[2]],
-                                                                                                          yy)))
-                                          names(xx) <- c("SensSpec", "MaxSensSpec",
-                                                         "TenPerc")
-                                          xx
-                                        })
-                                        thh <- lapply(1:3, function(i) rast(lapply(thh,
-                                                                                   "[[", i)))
-                                        if (any(grepl("evaluation", names(object[[sp]]$calibrated_model)))) {
-                                          if (object[[sp]]$calibrated_model$output_options[1] ==
-                                              "best") {
-                                            thh <- lapply(thh, function(jj) {
-                                              names(jj) <- paste("Binary", strsplit(names(jj[[1]]),
-                                                                                    "[.]")[[1]][1], rownames(object[[sp]]$calibrated_model$evaluation),
-                                                                 sep = "_")
-                                              jj
-                                            })
-                                          }
-                                          if (object[[sp]]$calibrated_model$output_options[1] ==
-                                              "weighted.mean") {
-                                            thh <- lapply(thh, function(jj) {
-                                              names(jj) <- paste("Binary", strsplit(names(jj[[1]]),
-                                                                                    "[.]")[[1]][1], "swap_weighted", sep = "_")
-                                              jj
-                                            })
-                                          }
-                                          if (object[[sp]]$calibrated_model$output_options[1] ==
-                                              "full") {
-                                            thh <- lapply(thh, function(jj) {
-                                              names(jj) <- paste(strsplit(names(jj[[1]]),
-                                                                          "[.]")[[1]][1], "swap", 1:nlyr(jj),
-                                                                 sep = "_")
-                                              jj
-                                            })
-                                          }
-                                        }else {
-                                          thh <- lapply(thh, function(jj) {
-                                            names(jj) <- paste(strsplit(names(jj[[1]]),
-                                                                        "[.]")[[1]][1], "swap", 1:nlyr(jj),
-                                                               sep = "_")
-                                            jj
-                                          })
-                                        }
-                                        if (object[[sp]]$calibrated_model$output_options[1] ==
-                                            "full") {
-                                          ras[[sp]]$imputed_prediction <- c(ras[[sp]]$imputed_prediction,
-                                                                            Suitability = rast(lapply(suitability_final,
-                                                                                                      "[[", 2)), Binary_SensSpec = thh[[1]],
-                                                                            Binary_MaxSensSpec = thh[[2]], Binary_TenPerc = thh[[3]])
-                                        }else {
-                                          ras[[sp]]$imputed_prediction <- c(ras[[sp]]$imputed_prediction,
-                                                                            rast(lapply(suitability_final, "[[", 2)),
-                                                                            thh[[1]], thh[[2]], thh[[3]])
-                                        }
-                                      }else {
-                                        ras[[sp]]$imputed_prediction <- mapply(function(a,
-                                                                                        b) {
-                                          cc <- cbind(a, b[[2]])
-                                          cc
-                                        }, a = ras[[sp]]$imputed_prediction, b = suitability_final,
-                                        SIMPLIFY = FALSE)
-                                      }
-                                      ras_final <- list(call = "imputed_prediction",
-                                                        imputed_prediction = ras[[sp]]$imputed_prediction)
-                                    }
-                                    return(ras_final)
-                                  })
-                                  names(ras_suitability) <- names(ras)
-                                  ras <- ras_suitability
-
-                                  lapply(1:length(ras),function(gg){
-                                    if (extends(class(ras[[gg]][[2]]), "SpatRaster")){
-                                      dir.create(paste0(output.dir,"/", "ENphylo_prediction"))
-                                      writeRaster(ras[[gg]][[2]],filename=paste0(output.dir,"/", "ENphylo_prediction","/",
-                                                                                 names(ras)[gg],".tif"),overwrite=TRUE)
-                                    } else {
-                                      dir.create(paste0(output.dir,"/", "ENphylo_prediction"))
-                                      save(ras[[gg]][[2]],file=paste0(output.dir,"/", "ENphylo_prediction","/",
-                                                                      names(ras)[gg],".RData"))
-                                    }
-
-                                  })
-
-                                }
-
-                                return(ras)
-                              }
+                              output.dir = NULL){
+  if (!(extends(class(newdata), "SpatRaster") | is.matrix(newdata) |
+        is.data.frame(newdata)))
+    stop("Please, provide newdata as a SpatRaster object or a data.frame")
+  x <- newdata
+  if (is.null(names(object))) {
+    if (object[[1]]$call == "enfa") {
+      U <- object[[1]]$co
+      f1 <- function(y) y %*% U
+      if (extends(class(x), "SpatRaster")) {
+        if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                   names(x))))
+          stop("Variable names in newdata must match with those used to calibrate models") else {
+            x <- x[[match(rownames(U), names(x))]]
+          }
+        ras <- app(x, fun = f1)
+        names(ras) <- names(object[[1]]$sf)
+      }else {
+        if (!(all(colnames(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                      colnames(x))))
+          stop("Variable names in newdata must match with those used to calibrate models") else {
+            x <- x[, match(rownames(U), colnames(x))]
+          }
+        ras <- t(apply(x, 1, f1))
+        colnames(ras) <- names(object[[1]]$sf)
+        ras <- as.data.frame(ras)
+      }
+    }
+    if (object[[1]]$call == "calibrated_enfa") {
+      U <- object[[1]]$full_model$co
+      f1 <- function(y) y %*% U
+      if (extends(class(x), "SpatRaster")) {
+        if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                   names(x))))
+          stop("Variable names in newdata must match with those used to calibrate models") else {
+            x <- x[[match(rownames(U), names(x))]]
+          }
+        ras <- app(x, fun = f1)
+        names(ras) <- names(object[[1]]$full_model$sf)
+      } else {
+        if (!(all(colnames(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                      colnames(x))))
+          stop("Variable names in newdata must match with those used to calibrate models") else {
+            x <- x[, match(rownames(U), colnames(x))]
+          }
+        ras <- t(apply(x, 1, f1))
+        colnames(ras) <- names(object[[1]]$full_model$sf)
+        ras <- as.data.frame(ras)
+      }
+    }
+    ras <- list(call = "enfa_prediction", enfa_prediction = ras)
+  } else {
+    cat(paste("\n", "PREDICTING ENFA/IMPUTATION", "\n"))
+    ras <- pblapply(object, function(ob) {
+      if (ob$call == "calibrated_enfa") {
+        U <- ob$calibrated_model$full_model$co
+        f1 <- function(y) y %*% U
+        if (extends(class(x), "SpatRaster")) {
+          if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                     names(x))))
+            stop("Variable names in newdata must match with those used to calibrate models") else {
+              x <- x[[match(rownames(U), names(x))]]
+            }
+          ras <- app(x, fun = f1)
+          names(ras) <- names(ob$calibrated_model$full_model$sf)
+          ras <- ras[[1:ob$calibrated_model$full_model$significant_axes]]
+          ras
+        } else {
+          if (!(all(colnames(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                        colnames(x))))
+            stop("Variable names in newdata must match with those used to calibrate models") else {
+              x <- x[, match(rownames(U), colnames(x))]
+            }
+          ras <- t(apply(x, 1, f1))
+          colnames(ras) <- names(ob$calibrated_model$full_model$sf)
+          ras <- as.data.frame(ras[, 1:ob$calibrated_model$full_model$significant_axes])
+          ras
+        }
+        ras <- list(call = "enfa_prediction", enfa_prediction = ras)
+      }
+      if (ob$call == "calibrated_imputed") {
+        ras <- lapply(ob$calibrated_model$co, function(co) {
+          U <- co
+          f1 <- function(y) y %*% U
+          if (extends(class(x), "SpatRaster")) {
+            if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                       names(x))))
+              stop("Variable names in newdata must match with those used to calibrate models") else {
+                x <- x[[match(rownames(U), names(x))]]
+              }
+            ras <- app(x, fun = f1)
+            names(ras) <- colnames(U)
+            ras
+          } else {
+            if (!(all(colnames(x) %in% rownames(U)) &
+                  all(rownames(U) %in% colnames(x))))
+              stop("Variable names in newdata must match with those used to calibrate models") else {
+                x <- x[, match(rownames(U), colnames(x))]
+              }
+            ras <- t(apply(x, 1, f1))
+            colnames(ras) <- colnames(U)
+            ras <- as.data.frame(ras)
+          }
+        })
+        if (extends(class(x), "SpatRaster")) {
+          ras <- lapply(1:nlyr(ras[[1]]), function(i) rast(lapply(ras,
+                                                                  "[[", i)))
+          names(ras)[1] <- "Marg"
+          names(ras)[-1] <- paste("Spec", 1:(length(ras) -
+                                               1), sep = "")
+          ras <- lapply(ras, function(o) {
+            if (any(grepl("evaluation", names(ob$calibrated_model)))) {
+              names(o) <- rownames(ob$calibrated_model$evaluation)
+            } else {
+              names(o) <- paste("swap", 1:nlyr(o), sep = "_")
+            }
+            o
+          })
+        } else {
+          if (any(grepl("evaluation", names(ob$calibrated_model)))) {
+            ras <- mapply(function(x, y) {
+              x$swap_rep <- y
+              x
+            }, x = ras, y = rownames(ob$calibrated_model$evaluation),
+            SIMPLIFY = FALSE)
+          } else {
+            ras <- mapply(function(x, y) {
+              x$swap_rep <- y
+              x
+            }, x = ras, y = paste("swap", 1:length(ras),
+                                  sep = "_"), SIMPLIFY = FALSE)
+          }
+        }
+        if (ob$calibrated_model$output_options[1] ==
+            "best" & extends(class(x), "SpatRaster")) {
+          ras2 <- ras
+          ras <- rast(ras)
+          names(ras) <- paste(names(ras2), strsplit(names(ras2[[1]]),
+                                                    "[.]")[[1]][1], sep = "_")
+          ras
+        }
+        if (ob$calibrated_model$output_options[1] ==
+            "weighted.mean" & ob$calibrated_model$output_options[2] ==
+            "OMR")
+          warning("The weighted mean of model predictions using OMR provides misleading results")
+        if (ob$calibrated_model$output_options[1] ==
+            "weighted.mean") {
+          if (extends(class(x), "SpatRaster")) {
+            ras <- list(Reduce("+", Map("*", lapply(1:nlyr(ras[[1]]),
+                                                    function(i) rast(lapply(ras, "[[", i))),
+                                        ob$calibrated_model$evaluation[, ob$calibrated_model$output_options[2]]))/nlyr(ras[[1]]))
+            rr <- lapply(1:nlyr(ras[[1]]), function(xx) {
+              dd <- ras[[1]][[xx]]
+              dd
+            })
+            rr <- rast(rr)
+            names(rr) <- paste(names(ras[[1]]), "swap_weighted",
+                               sep = "_")
+            ras <- rr
+            ras
+          } else {
+            ras <- list(Reduce("+", Map("*", lapply(ras,
+                                                    function(xx) xx[, !grepl("swap_rep", colnames(xx))]),
+                                        ob$calibrated_model$evaluation[, ob$calibrated_model$output_options[2]]))/length(ras))
+            ras[[1]]$swap_rep <- "swap_weighted"
+            ras
+          }
+        }
+        ras <- list(call = "imputed_prediction", imputed_prediction = ras)
+      }
+      return(ras)
+    })
+  }
+  if (convert.to.suitability) {
+    cat(paste("\n", "CONVERTING PREDICTED VALUES TO SUITABILITY",
+              "\n"))
+    if (extends(class(x), "SpatRaster")) {
+      reference <- as.data.frame(x)
+    } else reference <- x
+    ras_suitability <- pblapply(names(object), function(sp) {
+      cat(paste("\n", sp, "\n"))
+      mydata <- object[[sp]]$formatted_data
+      obs_col <- mydata$obs_col
+      time_col <- mydata$time_col
+      geoID_col <- mydata$geoID_col
+      reference$type <- factor("reference", levels = c("obs_background",
+                                                       "reference"))
+      reference[, obs_col] <- 0
+      if (nrow(mydata$input_back) > 10000) {
+        independent_data_for_pred <- rbind(mydata$input_ones,
+                                           mydata$input_back[sample(nrow(mydata$input_back),
+                                                                    10000), ])
+      } else independent_data_for_pred <- rbind(mydata$input_ones,
+                                                mydata$input_back)
+      obs_background <- independent_data_for_pred
+      obs_background <- obs_background[, !grepl(geoID_col,
+                                                colnames(obs_background))]
+      obs_background$type <- factor("obs_background", levels = c("obs_background",
+                                                                 "reference"))
+      obs_background <- obs_background[, match(colnames(reference),
+                                               colnames(obs_background))]
+      ras_for_proj <- rbind(reference, obs_background)
+      ras_obs <- ras_for_proj[, obs_col, drop = FALSE]
+      ras_type <- ras_for_proj[, "type", drop = FALSE]
+      ras_for_proj <- ras_for_proj[, !grepl(paste(c("type",
+                                                    obs_col), collapse = "|"), colnames(ras_for_proj))]
+      if (object[[sp]]$call == "calibrated_enfa") {
+        U <- object[[sp]]$calibrated_model$full_model$co
+        f1 <- function(y) y %*% U
+        ma1 <- t(apply(as.matrix(ras_for_proj), 1, f1))
+        colnames(ma1) <- colnames(U)
+        ma1 <- as.data.frame(scale(ma1[, 1:object[[sp]]$calibrated_model$full_model$significant_axes]))
+        ma1 <- list(ma1)
+      }
+      if (object[[sp]]$call == "calibrated_imputed") {
+        ma1 <- lapply(1:length(object[[sp]]$calibrated_model$co),
+                      function(kk) {
+                        U <- object[[sp]]$calibrated_model$co[[kk]]
+                        f1 <- function(y) y %*% U
+                        ma1 <- t(apply(as.matrix(ras_for_proj), 1,
+                                       f1))
+                        colnames(ma1) <- colnames(U)
+                        ma1 <- as.data.frame(scale(ma1))
+                      })
+        if (object[[sp]]$calibrated_model$output_options[1] ==
+            "weighted.mean") {
+          ma1 <- list(Reduce("+", Map("*", ma1, object[[sp]]$calibrated_model$evaluation[,
+                                                                                         object[[sp]]$calibrated_model$output_options[2]]))/length(ma1))
+        } else ma1 <- ma1
+      }
+      suitability_final <- lapply(1:length(ma1), function(kk) {
+        repeat {
+          hsm1 <- suppressWarnings(try(mahasuhab.custom(x = ma1[[kk]],
+                                                        pts = ma1[[kk]][which(ras_obs == 1), ]),
+                                       silent = TRUE))
+          if (inherits(hsm1, "try-error")) {
+            ma1[[kk]] <- ma1[[kk]][, -ncol(ma1[[kk]]),
+                                   drop = FALSE]
+            warning(paste("Dimensionality was reduced to",
+                          ncol(ma1[[kk]]), "axes"))
+          } else break
+        }
+        ma1[[kk]]$Suitability <- hsm1$MD
+        reference <- ma1[[kk]][which(ras_type == "reference"),
+        ]
+        pred_for_th <- ma1[[kk]][which(ras_type == "obs_background"),
+        ]
+        data_for_th <- data.frame(ID = 1:nrow(pred_for_th),
+                                  observed = obs_background[, obs_col], pred = pred_for_th$Suitability)
+        suppressWarnings(TH <- optimal.thresholds(data_for_th)[2:3,
+                                                               2])
+        TH <- c(TH, quantile(data_for_th[which(data_for_th$observed ==
+                                                 1), ]$pred, 0.1))
+        if (extends(class(x), "SpatRaster")) {
+          hsm1 <- x[[1]]
+          hsm1[!is.na(hsm1)] <- reference$Suitability
+          names(hsm1) <- "Suitability"
+          if (object[[sp]]$call == "calibrated_imputed") {
+            if (any(grepl("evaluation", names(object[[sp]]$calibrated_model)))) {
+              if (object[[sp]]$calibrated_model$output_options[1] ==
+                  "best") {
+                names(hsm1) <- paste("Suitability", rownames(object[[sp]]$calibrated_model$evaluation)[kk],
+                                     sep = "_")
+              }
+              if (object[[sp]]$calibrated_model$output_options[1] ==
+                  "weighted.mean") {
+                names(hsm1) <- paste(names(hsm1), "swap_weighted",
+                                     sep = "_")
+              }
+              if (object[[sp]]$calibrated_model$output_options[1] ==
+                  "full") {
+                names(hsm1) <- paste("Suitability", "swap",
+                                     kk, sep = "_")
+              }
+            } else names(hsm1) <- paste("Suitability",
+                                        "swap", kk, sep = "_")
+          }
+        } else {
+          hsm1 <- reference[, "Suitability", drop = FALSE]
+        }
+        return(list(TH, hsm1))
+      })
+      if (object[[sp]]$call == "calibrated_enfa") {
+        if (extends(class(x), "SpatRaster")) {
+          thh <- lapply(suitability_final, function(xx) {
+            xx <- rast(sapply(xx[[1]], function(yy) bm_BinaryTransformation(xx[[2]],
+                                                                            yy)))
+            names(xx) <- c("SensSpec", "MaxSensSpec",
+                           "TenPerc")
+            xx
+          })
+          names(thh[[1]]) <- paste("Binary", names(thh[[1]]),
+                                   sep = "_")
+          ras[[sp]]$enfa_prediction <- c(ras[[sp]]$enfa_prediction,
+                                         suitability_final[[1]][[2]], thh[[1]])
+        } else {
+          ras[[sp]]$enfa_prediction <- mapply(function(a,
+                                                       b) {
+            cbind(a, b[[2]])
+          }, a = list(ras[[sp]]$enfa_prediction), b = suitability_final,
+          SIMPLIFY = FALSE)
+        }
+        ras_final <- list(call = "enfa_prediction", enfa_prediction = ras[[sp]]$enfa_prediction)
+      }
+      if (object[[sp]]$call == "calibrated_imputed") {
+        if (extends(class(x), "SpatRaster")) {
+          thh <- lapply(suitability_final, function(xx) {
+            xx <- rast(sapply(xx[[1]], function(yy) bm_BinaryTransformation(xx[[2]],
+                                                                            yy)))
+            names(xx) <- c("SensSpec", "MaxSensSpec",
+                           "TenPerc")
+            xx
+          })
+          thh <- lapply(1:3, function(i) rast(lapply(thh,
+                                                     "[[", i)))
+          if (any(grepl("evaluation", names(object[[sp]]$calibrated_model)))) {
+            if (object[[sp]]$calibrated_model$output_options[1] ==
+                "best") {
+              thh <- lapply(thh, function(jj) {
+                names(jj) <- paste("Binary", strsplit(names(jj[[1]]),
+                                                      "[.]")[[1]][1], rownames(object[[sp]]$calibrated_model$evaluation),
+                                   sep = "_")
+                jj
+              })
+            }
+            if (object[[sp]]$calibrated_model$output_options[1] ==
+                "weighted.mean") {
+              thh <- lapply(thh, function(jj) {
+                names(jj) <- paste("Binary", strsplit(names(jj[[1]]),
+                                                      "[.]")[[1]][1], "swap_weighted", sep = "_")
+                jj
+              })
+            }
+            if (object[[sp]]$calibrated_model$output_options[1] ==
+                "full") {
+              thh <- lapply(thh, function(jj) {
+                names(jj) <- paste(strsplit(names(jj[[1]]),
+                                            "[.]")[[1]][1], "swap", 1:nlyr(jj),
+                                   sep = "_")
+                jj
+              })
+            }
+          } else {
+            thh <- lapply(thh, function(jj) {
+              names(jj) <- paste(strsplit(names(jj[[1]]),
+                                          "[.]")[[1]][1], "swap", 1:nlyr(jj), sep = "_")
+              jj
+            })
+          }
+          if (object[[sp]]$calibrated_model$output_options[1] ==
+              "full") {
+            ras[[sp]]$imputed_prediction <- c(ras[[sp]]$imputed_prediction,
+                                              Suitability = rast(lapply(suitability_final,
+                                                                        "[[", 2)), Binary_SensSpec = thh[[1]],
+                                              Binary_MaxSensSpec = thh[[2]], Binary_TenPerc = thh[[3]])
+          } else {
+            ras[[sp]]$imputed_prediction <- c(ras[[sp]]$imputed_prediction,
+                                              rast(lapply(suitability_final, "[[", 2)),
+                                              thh[[1]], thh[[2]], thh[[3]])
+          }
+        } else {
+          ras[[sp]]$imputed_prediction <- mapply(function(a,
+                                                          b) {
+            cc <- cbind(a, b[[2]])
+            cc
+          }, a = ras[[sp]]$imputed_prediction, b = suitability_final,
+          SIMPLIFY = FALSE)
+        }
+        ras_final <- list(call = "imputed_prediction",
+                          imputed_prediction = ras[[sp]]$imputed_prediction)
+      }
+      return(ras_final)
+    })
+    names(ras_suitability) <- names(ras)
+    ras <- ras_suitability
+    lapply(1:length(ras), function(gg) {
+      if (extends(class(ras[[gg]][[2]]), "SpatRaster")) {
+        dir.create(paste0(output.dir, "/", "ENphylo_prediction"))
+        writeRaster(ras[[gg]][[2]], filename = paste0(output.dir,
+                                                      "/", "ENphylo_prediction", "/", names(ras)[gg],
+                                                      ".tif"), overwrite = TRUE)
+      } else {
+        dir.create(paste0(output.dir, "/", "ENphylo_prediction"))
+        save(ras[[gg]][[2]], file = paste0(output.dir,
+                                           "/", "ENphylo_prediction", "/", names(ras)[gg],
+                                           ".RData"))
+      }
+    })
+  }
+  return(ras)
+}
 
 
 
