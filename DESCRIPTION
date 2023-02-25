@@ -2,7 +2,7 @@ Package: RRdtn
 Type: Package
 Title: Species Distribution Modelling for Rare Species
 Date: 2023-02-14
-Version: 0.5.3
+Version: 0.5.4
 Author: Alessandro Mondanaro, Mirko Di Febbraro, Silvia Castiglione,
         Carmela Serio, Marina Melchionna, Pasquale Raia
 Maintainer: Alessandro Mondanaro <alessandro.mondanaro@unifi.it>
