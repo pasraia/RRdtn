@@ -6,75 +6,56 @@
  time interval}
 \usage{
 ENphylo_prediction(object, newdata,
- convert.to.suitability=FALSE,output.dir=NULL)
+ convert.to.suitability=FALSE,output.dir='.',proj_name="outputs")
 }
 \arguments{
 \item{object}{a \code{list} returned by the \code{\link{ENphylo_modeling}}
-function where all the species are modelled with ENFA or ENphylo models.}
+function where all the species are modeled with ENFA or ENphylo models.}
 
-\item{newdata}{a set of explanatory variables onto which ENFA or ENphylo
-models will be projected. It could be a \code{data.frame} or a
-\code{SpatRaster} object.}
+\item{newdata}{a \code{SpatRaster} object including explanatory variables onto
+which ENFA or ENphylo models are to be projected.}
 
 \item{convert.to.suitability}{logical. If \code{TRUE},
 \code{ENphylo_prediction} projects ENFA or ENphylo model predictions in
 other areas and other time scales.}
 
-\item{output.dir}{under \code{convert.to.suitability=TRUE}, the file path
-wherein \code{ENphylo_prediction} creates an "Enphylo_prediction" folder to
-store prediction outputs for each species. If \code{newdata} is a
-\code{SpatRaster} object, \code{SpatRaster} outputs in .tif format will be
-saved. If \code{newdata} is a \code{data.frame}, \code{data.frame} outputs
-will be saved as .RData file.}
+\item{output.dir}{the file path wherein \code{ENphylo_prediction} creates an
+"ENphylo_prediction" folder to store prediction outputs \code{SpatRaster}s
+in .tif format for each species.}
+
+\item{proj_name}{name of the folder stored within the individual species
+folders to contain the \code{ENphylo_prediction} outputs.}
 }
 \value{
-A list of length equal to the number of modelled species. For each
- element of the list, the output objects differ depending on whether ENFA or
- ENphylo is implemented and if a \code{SpatRaster} or data.frame object is
- provided by the user as new environments where to project the model.
- Furthermore, if the \code{convert.to.suitability=TRUE}, each element of the
- list includes the habitat suitability values in addition to model
- predictions for marginality and specialization. In any case, each element of
- the output list contains two elements:
+A list of length equal to the number of modeled species. For each
+ element of the list, the output objects differ depending on whether the
+ input \code{object} is an ENFA or ENphylo model. Furthermore, if
+ \code{convert.to.suitability=TRUE}, each element of the list includes the
+ habitat suitability values, in addition to model predictions for marginality
+ and specialization.
 
-ENFA/\code{SpatRaster}
+ENFA
 
 \enumerate{ \item\strong{$call}: a character specifying the algorithm
- used for the model predictions. \item\strong{$enfa_prediction}: a list of
+ used for model predictions. \item\strong{$enfa_prediction}: a list of
  \code{SpatRaster} objects including marginality and specialization model
- predictions plus the habitat suitability and binary presence/absence maps
- obtained by using three different predefined thresholds: MaxSensSpec (i.e.
- maximize TSS), SensSpec (i.e. equalize sensitivity and specificity) and 10th
- percentile of predicted probability. Habitat suitability estimates and
- binary values are calculated only if \code{convert.to.suitability = TRUE}.}
+ predictions obtained by using three different predefined thresholds:
+ MaxSensSpec (i.e. maximize TSS), SensSpec (i.e. equalize sensitivity and
+ specificity) and 10th percentile of predicted probability. Habitat
+ suitability estimates and binary presence/absence maps are calculated under
+ \code{convert.to.suitability = TRUE}.}
 
-ENFA/data.frame
-
-\enumerate{ \item\strong{$call}: a character specifying the algorithm
- used for the model predictions.\item\strong{$enfa_prediction}: a data.frame
- containing marginality and specialization model predictions and the habitat
- suitability values (only if \code{convert.to.suitability = TRUE}).}
-
-ENphylo/\code{SpatRaster}
+ENphylo
 
 \enumerate{ \item\strong{$call}: a character specifying the algorithm
- used for the model predictions. \item\strong{$imputed_prediction}: a list of
+ used for model predictions. \item\strong{$imputed_prediction}: a list of
  \code{SpatRaster} objects including marginality and specialization model
- predictions. The layer number of each \code{SpatRaster} is equal to the
- integer number chosen for testing alternative phylogenies (i.e. \code{nsim}
- argument). If \code{convert.to.suitability = TRUE}, in addition to
- marginality and specialization, the function provides \code{SpatRaster}
- objects containing habitat suitability and binary presence/absence maps (see
- above) for each tested phylogeny.}
-
-ENphylo/data.frame
-
-\enumerate{ \item\strong{$call}: a character specifying the algorithm
- used for the model predictions. \item\strong{$imputed_prediction}: a list of
- data.frame objects of length equal to the integer number chosen for testing
- alternative phylogenies (i.e. \code{nsim} argument) containing marginality
- and specialization model predictions and the habitat suitability values
- (only if \code{convert.to.suitability argument = TRUE}).}
+ predictions. The number of layers of each \code{SpatRaster} is equal to the
+ number of alternative phylogenies
+ tested within \code{ENphylo_modeling}. If \code{convert.to.suitability =
+ TRUE}, the function additionally provides \code{SpatRaster} objects
+ containing habitat suitability and binary presence/absence maps for each
+ tested phylogeny.}
 }
 \description{
 The function projects species marginality and specialization
@@ -103,7 +84,7 @@ url<-"https://www.dropbox.com/s/wm7qcuwm0nm35w2/ENphylo\%20code\%26data\%202.zip
 download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
 unzip("ENphylo code&data 2.zip")
 load("ENphylo code&data/example_data.RData")
-### NOTE: the object enfa_all_species is no longer necessary with RRdtn >= 0.5.2 ,
+### NOTE: the object enfa_all_species is no longer necessary with RRgeo,
 ### it can be removed from the example environment
 
 MASK_FULL<-terra::rast("ENphylo code&data/variable_bio1.tif")
@@ -124,7 +105,8 @@ gc()
 ENmod_pred<-ENphylo_prediction(object=ENmod[1],
                               newdata=external_data,
                               convert.to.suitability=TRUE,
-                              output.dir=main.dir)
+                              output.dir=main.dir,
+                              proj_name="ENmod_pred")
 
 ### CASE 2
 ## Simulating a rare species by subsampling its occurrences to force run ENphylo algorithm
@@ -150,14 +132,16 @@ ENmod_subsam<-ENphylo_modeling(input_data=DATA_FULL,
                               min_occ_enfa=npoints+1,
                               eval_metric_for_imputation="AUC",
                               eval_threshold=0.7,
-                              output_options = "best")
+                              output_options = "best",
+                              proj_name="ENmod_subsam")
 gc()
 
 # Predicting for the k species in ENmod_subsam output
 ENmod_subsam_pred<-ENphylo_prediction(object=ENmod_subsam[k],
                                      newdata=external_data,
                                      convert.to.suitability=TRUE,
-                                     output.dir=main.dir)
+                                     output.dir=main.dir,
+                                     proj_name="ENmod_subsam_pred")
 
 
 }
