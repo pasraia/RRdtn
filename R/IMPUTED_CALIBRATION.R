@@ -1,4 +1,4 @@
-#' @importFrom stats median aggregate cov mahalanobis median pchisq
+#' @importFrom stats median cov mahalanobis median pchisq
 #' @importFrom RRphylo swapONE RRphylo
 #' @importFrom ape Ntip
 #' @importFrom pbapply pblapply
@@ -138,7 +138,7 @@ IMPUTED_CALIBRATION<-function (ENFA_output,
     }, xx = output, yy = tt, SIMPLIFY = FALSE)
     EVAL_ALL <- lapply(tt, function(xx) {
       aa <- xx$formatted_data$input_ones
-      if (nrow(aa) >= 10) {
+      if (nrow(aa) >= 5) {
         ss <- replicate(boot_reps, {
           sample(1:nrow(aa), nrow(aa) * boot_test_perc/100)
         }, simplify = FALSE)
@@ -344,13 +344,13 @@ IMPUTED_CALIBRATION<-function (ENFA_output,
           EVAL_ALL
         }
       }
-      if (nrow(aa) < 10)
+      if (nrow(aa) < 5)
         EVAL_ALL <- "NULL"
       return(EVAL_ALL)
     })
     EVAL_ALL <- suppressWarnings(lapply(EVAL_ALL, function(x) {
       if (length(x) > 1) {
-        aggregate(cbind(AUC, TSS, CBI, SORENSEN, OMR) ~
+        stats::aggregate(cbind(AUC, TSS, CBI, SORENSEN, OMR) ~
                     swap, data = x, FUN = "mean")
       }
       else NULL
@@ -441,12 +441,6 @@ IMPUTED_CALIBRATION<-function (ENFA_output,
       jj$output_options = "full"
       jj <- c(jj, list(evaluation = NULL))
     }
-    dir.create(file.path("ENphylo_imputed_models", nam),
-               recursive = TRUE)
-    model_outputs<- list(jj)
-    names(model_outputs) <- nam
-    save(model_outputs, file = paste0("ENphylo_imputed_models/", nam,
-                                      "/output_model.RData"))
     jj
   }, jj = output, kk = EVAL_ALL, ll = output_opt, nam = names(output),
   SIMPLIFY = FALSE)

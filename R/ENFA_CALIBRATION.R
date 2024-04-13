@@ -50,7 +50,7 @@ ENFA_CALIBRATION<-function (formatted_data,
       cl <- makeCluster(clust, type = "SOCK")
       registerDoParallel(cl)
       EVALUATIONS <- foreach(s = ss, .packages = c("dismo",
-                                                   "ecospat", "PresenceAbsence", "RRdtn")) %dopar%
+                                                   "ecospat", "PresenceAbsence", "RRgeo")) %dopar%
         {
           s.dat.train <- formatted_data$input_ones[-s,
                                                    , drop = FALSE]

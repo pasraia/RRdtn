@@ -4,123 +4,129 @@
 #'  according to \cite{Rinnan & Lawler (2019)} via Environmental Niche Factor
 #'  Analysis (ENFA) and phylogenetic imputation (\cite{Garland & Ives, 2000}).
 #'  It takes a list of \code{Spatial} or \code{Simple Features} (\pkg{sp} or
-#'  \pkg{sf} objects) and a phylogenenetic tree to train ENFA and/or ENphylo
-#'  models. This function allows to calibrate and evaluate both model techniques
-#'  for a given species while accounting for phylogenetic uncertainty.
-#'  Calibrations are made on a random subset of the data under the bootstrap
-#'  cross-validation scheme. The predictive power of the different models is
-#'  estimated using four different evaluation metrics.
+#'  \pkg{sf}) objects and a phylogenetic tree to train ENFA and/or ENphylo
+#'  models. Both model techniques are calibrated and evaluated while accounting
+#'  for phylogenetic uncertainty. Calibrations are made on a random subset of
+#'  the data under the bootstrap cross-validation scheme. The predictive power
+#'  of the different models is estimated using four different evaluation
+#'  metrics.
 #'@usage ENphylo_modeling(input_data, tree, input_mask, obs_col, time_col=NULL,
-#'  min_occ_enfa=50, boot_test_perc=20, boot_reps=10, nsim=10, si=0.2, si2=0.2,
-#'  eval_metric_for_imputation=c("AUC","TSS","CBI","SORENSEN","OMR"),
-#'  output_options=c("full","weighted.mean","best"), eval_threshold=0.7,
-#'  clust=0.5)
+#'  min_occ_enfa=50, boot_test_perc=20, boot_reps=10, swap.args= list(nsim=10,
+#'  si=0.2, si2=0.2), eval.args=list(eval_metric_for_imputation="AUC",
+#'  eval_threshold=0.7,output_options="best"),clust=0.5,output.dir='.')
 #'@param input_data a list of \code{sf::data.frame} objects containing species
 #'  occurrence data in binary format (ones for presence, zero for background
 #'  points) along with the explanatory variables to be used in ENFA or ENphylo.
 #'  Each element of the list must be named (i.e. the species name).
 #'  Alternatively, ENFA model outputs generated through \code{ENphylo_modeling}
 #'  can be supplied as named elements of \code{input_data} list.
-#'@param tree an object of class \code{phylo} containing a phylogenetic tree
-#'  written in Newick format with all the species considered in the
-#'  \code{INPUT_DATA} argument. The tree needs not to be ultrametric or fully
+#'@param tree an object of class \code{phylo} including all the species in
+#'  \code{input_data}. The tree needs not to be ultrametric or fully
 #'  dichotomous.
 #'@param input_mask an object of class \code{SpatRaster}. This is the
 #'  geographical mask defining the spatial domain encompassing the background
 #'  area enclosing all the species in the tree.
-#'@param obs_col character. Name of the column containing the vector of species
-#'  occurrence data in binary format.
-#'@param time_col character. Name of column containing the time intervals
-#'  associated to each species presence and background point (optional).
+#'@param obs_col character. Name of the \code{input_data} column containing the
+#'  vector of species occurrence data in binary format.
+#'@param time_col character. Name of the \code{input_data} column containing the
+#'  time intervals associated to each species presence and background point
+#'  (optional).
 #'@param min_occ_enfa numeric. The minimum number of occurrence data required
-#'  for a species to be modelled with ENFA.
-#'@param boot_test_perc numeric. Percentage of data (comprised between 0 and
-#'  100) used to calibrate ENFA and/or ENphylo models within a bootstrap
-#'  cross-validation scheme (the \code{100-boot_test_perc} remaining percentage
-#'  will be used for evaluating model performances).
+#'  for a species to be modeled with ENFA.
+#'@param boot_test_perc numeric. Percentage of data (ranging between 0 and 100)
+#'  used to calibrate ENFA and/or ENphylo models within a bootstrap
+#'  cross-validation scheme. The \code{100-boot_test_perc} remaining percentage
+#'  will be used for evaluating model performances.
 #'@param boot_reps numeric. Number of evaluation runs performed within the
 #'  bootstrap cross-validation scheme to evaluate ENFA and/or ENphylo models. If
-#'  set to 0, models evaluation is skipped.
-#'@param nsim numeric. Number of alternative phylogenies with altered topology
-#'  and branch lengths (as compared to the reference tree) to be tested by means
-#'  of function \code{\link[RRphylo]{swapONE}}
-#'@param si numeric. As in \code{\link[RRphylo]{swapONE}}, the proportion of
-#'  tips whose topologic arrangement will be swapped to provide alternative
-#'  trees.
-#'@param si2 numeric. As in \code{\link[RRphylo]{swapONE}}, the proportion of
-#'  nodes whose age will be changed to provide alternative trees.
-#'@param eval_metric_for_imputation character. Evaluation metric used to select
+#'  set to 0, models evaluation is skipped and the internal evaluation element
+#'  returns \code{NULL}.
+#'@param swap.args list of ENphylo parameters. It includes: \itemize{ \item nsim
+#'  = number of alternative phylogenies (altered topology and branch lengths as
+#'  compared to the reference tree) to be generated by means of
+#'  \code{\link[RRphylo]{swapONE}} and tested (\code{nsim < 1} is not allowed -
+#'  see details); \item si,si2 = arguments passed to \code{RRphylo::swapONE}.}
+#'@param eval.args list of evaluation model parameters. It includes:
+#'  \itemize{\item eval_metric_for_imputation = evaluation metric used to select
 #'  the most accurate ENphylo models. The viable options are: \code{"AUC"},
-#'  \code{"TSS"}, \code{"CBI"}, \code{"SORENSEN"}, or \code{"OMR"}.
-#'@param output_options character. The strategy adopted to return ENphylo models
-#'  results (see details). The viable options are: \code{"full"},
-#'  \code{"weighted.mean"}, and \code{"best"}.
-#'@param eval_threshold numeric. The minimum evaluation score below which
-#'  ENphylo models derived from the swapped trees are excluded from the function
-#'  output (only used if \code{output_options = "weighted.mean"} or
-#'  \code{"best"}).
+#'  \code{"TSS"}, \code{"CBI"}, \code{"SORENSEN"}, or \code{"OMR"};
+#'  \item eval_threshold = the minimum evaluation score to evaluate ENFA and ENphylo
+#'  performance. ENFA models having \code{eval_metric_for_imputation} lower than
+#'  \code{eval_threshold} are compared to ENphylo models to keep the one fitting
+#'  best. Additionally, within ENphylo, models derived from the swapped trees
+#'  having \code{eval_metric_for_imputation} lower than \code{eval_threshold}
+#'  are excluded from the output; \item output_options = the strategy adopted to
+#'  return ENphylo models results (see details). The viable options are:
+#'  \code{"full"}, \code{"weighted.mean"}, and \code{"best"}.
+#'  }
 #'@param clust numeric. The proportion of cores used to train ENFA and ENphylo
 #'  models. If \code{NULL}, parallel computing is disabled. It is set at 0.5 by
 #'  default.
+#'@param output.dir the file path wherein \code{ENphylo_modeling} creates
+#'  "ENphylo_enfa_models" and "ENphylo_imputed_models"" folders to store
+#'  modeling outputs (see details).
 #'@author Alessandro Mondanaro, Mirko Di Febbraro, Silvia Castiglione, Carmela
 #'  Serio, Marina Melchionna, Pasquale Raia
-#'@details \code{ENphylo_modeling} automatically arranges the input data in a
+#'@details \code{ENphylo_modeling} automatically arranges \code{input_data} in a
 #'  convenient format to run ENFA or ENphylo. The internal call of the function
 #'  is \code{"calibrated_enfa"} for ENFA and \code{"calibrated_imputed"} for
-#'  ENphylo, respectively. The function requires a list as the input data. Each
-#'  element of the list must be provided with a name (e.g. species names). Model
-#'  evaluation can be switched off by setting \code{boot_rep} =0. In this case,
-#'  the internal evaluation element will return \code{NULL}. The function cannot
-#'  work with \code{nsim} < 1 since one of the strongest points of
-#'  \code{ENphylo_modeling} is to test alternative phylogenies for providing the
-#'  most accurate possible reconstruction of the species environmental
+#'  ENphylo, respectively.
+#'
+#'@details \strong{Phylogenetic uncertainty}
+#'
+#'  The function cannot work with \code{nsim} < 1 since one of the strongest
+#'  points of \code{ENphylo_modeling} is to test alternative phylogenies to
+#'  provide the most accurate possible reconstruction of species environmental
 #'  preferences.
 #'
-#'  ENphylo automatically switches from ENFA to ENphylo algorithm for any
-#'  species having ENFA model accuracy below the minimum evaluation score set by
-#'  the user (i.e. \code{eval_threshold}). In this case, both models are
-#'  performed but only the one performing best according to validation metrics
-#'  is retained. Overall, the function is able to phylogenetically impute up to
-#'  30 percent of the species on the tree. If the sum of species with a low
-#'  number of occurrences (i.e. a number below \code{min_occ_enfa}) or poorly
-#'  modeled with ENFA (i.e. evaluation score below \code{eval_threshold})
-#'  exceeds 30\%, ENphylo is set to use lower \code{min_occ_enfa} or lower
-#'  \code{eval_threshold} progressively adding poorly modeled species until the
-#'  remaining set amounts to less than 30\% of the total. In this case, the
-#'  function reports a warning where the new \code{min_occ_enfa} and/or
-#'  \code{eval_threshold} value is expressed. If \code{ENphylo_modeling} runs
-#'  the ENphylo algorithm, the outputs depends on the strategy adopted by the
-#'  user through the \code{output_options} argument. If
-#'  \code{output_options="full"}, all CO matrices and evaluation metrics for all
-#'  the swapped trees are reported. With \code{output_options="weighted.mean"},
-#'  the output takes a subset of CO matrices and evaluation metrics only for
-#'  those tree swapping iterations, achieving a predictive accuracy above the
-#'  user-defined threshold, as indicated in the
-#'  \code{eval_metric_for_imputation} and \code{eval_threshold} arguments.
-#'  Finally, if \code{output_options="best"}, a single CO matrix and evaluation
-#'  scores vector corresponding to the most accurate swapped tree is reported.
-#'  If any of the tree swapping iterations under either \code{"best"} or
-#'  \code{"weighted.mean"}  provides above-thethreshold accuracy, the function
-#'  automatically switches to \code{"full"} strategy. In any case, the function
-#'  returns a list element where model options and metric used to validate model
-#'  are expressed. Eventually, the function creates two new folders,
-#'  "ENphylo_enfa_models" and "ENphylo_imputed_models", in the current working
-#'  directory. In each of these folders, a number of new named folders equal to
-#'  the number of modelled species are created. Model outputs and background
-#'  area in .tif format will be saved therein as "model_output.RData" and "study
-#'  area", respectively.
-#'@return A list of length equal to the number of modelled species. For each
+#'@details \strong{Phylogenetic Imputation}
+#'
+#'  \code{ENphylo_modeling} automatically switches from ENFA to ENphylo
+#'  algorithm for any species having less than \code{min_occ_enfa} occurrences
+#'  or ENFA model accuracy below \code{eval_threshold}. In this latter case, the
+#'  function performs both models and retains the one performing best according
+#'  to \code{eval_metric_for_imputation}. Phylogenetic imputation is allowed for
+#'  up to 30\% of the species on the tree. If the number of species to impute
+#'  exceeds 30\%, \code{ENphylo_modeling} automatically splits the original tree
+#'  into smaller subtrees, so that the maximum percentage of imputation is
+#'  observed. Each subtree is designed as to impute phylogenetically distant
+#'  species and to retain species phylogenetically close to the taxa to be
+#'  imputed (so that imputation is robust). In this case, the functions prints
+#'  the number of phylogenies used.
+#'
+#'@details \strong{Outputs}
+#'
+#'  If \code{ENphylo_modeling} runs the ENphylo algorithm, the outputs depends
+#'  on the strategy adopted by the user through the \code{output_options}
+#'  argument. If \code{output_options="full"}, all CO matrices and evaluation
+#'  metrics for all the swapped trees are returned. Under
+#'  \code{output_options="weighted.mean"}, the output consists of a subset of CO
+#'  matrices and evaluation metrics for those tree swapping iterations achieving
+#'  a predictive accuracy in terms of \code{eval_metric_for_imputation} above
+#'  \code{eval_threshold}. Finally, if \code{output_options="best"}, a single CO
+#'  matrix and evaluation scores vector corresponding to the most accurate
+#'  swapped tree is returned. If any of the tree swapping iterations under
+#'  either \code{"best"} or \code{"weighted.mean"} provides below-the-threshold
+#'  accuracy, the function automatically switches to \code{"full"} strategy.
+#'
+#'  Eventually, the function creates two new folders, "ENphylo_enfa_models" and
+#'  "ENphylo_imputed_models", in \code{output.dir}. In each of these folders, a
+#'  number of new named folders equal to the number of modeled species are
+#'  created. Therein, model outputs and background area in .tif format are saved
+#'  as \code{model_outputs.RData} and \code{study_area}, respectively.
+#'@return A list of length equal to the number of modeled species. For each
 #'  element of this list, the output contains three elements: \enumerate{ \item
 #'  \strong{$call} a character specifying the algorithm used to model the
 #'  species (i.e. ENFA or ENphylo). \item \strong{$formatted data} a list of
 #'  input data formatted to run either ENFA or ENphylo algorithms. Specifically,
-#'  the list reports \code{$input_ones} the presence data points,
-#'  \code{$input_back} the background points, \code{$one_COORDS} the coordinates
-#'  of presence data only, and the name
+#'  the list reports: the presence data points (\code{$input_ones}),
+#'  the background points (\code{$input_back}),the name
 #'  of the columns associated to the arguments \code{OBS_col} and
-#'  \code{TIME_factor_col} (if specified). \item \strong{$calibrated_model} a list of three
-#'  elements. The output objects are different depending on whether ENFA or
-#'  ENphylo is used to model the species:}
+#'  \code{time_col} (if specified), the name of the column containing the cell
+#'  numbers (\code{geoID_col}), and the coordinates
+#'  of presence data only (\code{$one_coords}). \item \strong{$calibrated_model}
+#'  a list of three elements. The output objects are different depending on
+#'  whether ENFA or ENphylo is used to model the species:}
 #'@return  ENFA
 #'@return \itemize{\item$call: a character specifying the algorithm used.
 #'  \item$full_ model: a list containing marginality and specialization factors,
@@ -129,27 +135,24 @@
 #'  \cite{Rinnan et al. 2019} for additional details). \item$evaluation: a
 #'  matrix containing the evaluation scores of the ENFA model assessed by all
 #'  possible evaluation metrics (i.e. Area Under the Curve (AUC), True Skill
-#'  Statistic (TSS), Boyce Index, Sorensen Index, and Omission Rate (OMR)) for
-#'  each model evaluations run.}
+#'  Statistic (TSS), Boyce Index (CBI), Sorensen Index, and Omission Rate (OMR))
+#'  for each model evaluations run.}
 #'@return ENphylo
 #'@return \itemize{\item$call: a character specifying the algorithm used.
 #'  \item$co: a list of the 'co' matrices of length equal to the number of
 #'  alternative phylogenies tested (i.e. \code{nsim} argument).
-#'  \item$evaluation: a data.frame object containing the evaluation scores of
-#'  ENphylo model assessed by the evaluation metrics for each alternative
+#'  \item$evaluation: a data.frame containing the evaluation scores of ENphylo
+#'  model assessed by all possible evaluation metrics for each alternative
 #'  phylogeny. The output of this object depends on the strategy adopted by the
 #'  user through the \code{output_options} argument (see
-#'  details).\item$output_options:  a character vector where the model options
-#'  to run ENphylo and the evaluation metric used to assess the accuracy of
-#'  ENphylo model are expressed.\item$evaluation: a matrix containing the
-#'  evaluation scores of the ENFA model assessed by all possible evaluation
-#'  metrics (i.e. Area Under the Curve (AUC), True Skill Statistic (TSS), Boyce
-#'  Index, Sorensen Index, and Omission Rate (OMR)) for each model evaluations
-#'  run.}
-#'@importFrom terra extend res crop vect rasterize crds ext writeRaster
-#'@importFrom ape drop.tip vcv
+#'  details).\item$output_options:  a character vector including the argument
+#'  \code{output_options} and \code{eval_metric_for_imputation} set to run the
+#'  of ENphylo model.}
+#'@importFrom ape drop.tip vcv cophenetic.phylo keep.tip
 #'@importFrom methods extends as
 #'@importFrom parallel detectCores
+#'@importFrom stats hclust cutree as.dist
+#'@importFrom terra extend res crop vect rasterize crds ext writeRaster
 #'@export
 #'@references Rinnan, D. S., &  Lawler, J. (2019). Climate-niche factor
 #'  analysis: a spatial approach to quantifying species vulnerability to climate
@@ -166,7 +169,7 @@
 #'download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
 #'unzip("ENphylo code&data 2.zip")
 #'load("ENphylo code&data/example_data.RData")
-#' ### NOTE: the object enfa_all_species is no longer necessary with RRdtn >= 0.5.2 ,
+#' ### NOTE: the object enfa_all_species is no longer necessary with RRgeo,
 #' ### it can be removed from the example environment
 #'
 #'MASK_FULL<-terra::rast("ENphylo code&data/variable_bio1.tif")
@@ -220,146 +223,83 @@ ENphylo_modeling<-function (input_data = NULL,
                             min_occ_enfa = 50,
                             boot_test_perc = 20,
                             boot_reps = 10,
-                            nsim = 10,
-                            si = 0.2,
-                            si2 = 0.2,
-                            eval_metric_for_imputation = c("AUC","TSS", "CBI", "SORENSEN", "OMR"),
-                            output_options = c("full","weighted.mean", "best"),
-                            eval_threshold = 0.7,
-                            clust = 0.5)
-{
+                            swap.args=list(nsim=10,si=0.2,si2=0.2),
+                            eval.args=list(eval_metric_for_imputation="AUC",eval_threshold=0.7,output_options="best"),
+                            clust = 0.5,
+                            output.dir='.'){
   if (any(is.null(names(input_data))))
     stop("all the elements in input_data list must be provided with a species name")
   if (any(!names(input_data) %in% tree$tip.label))
     stop("all species in input_data must be on the phylogenetic tree")
   if (boot_reps > 0)
     evaluate_imputed = TRUE else evaluate_imputed = FALSE
-  if (evaluate_imputed & length(eval_metric_for_imputation) >
-      1)
-    stop("Please, set just one evaluation metric for imputation")
-  if (evaluate_imputed & length(output_options) > 1)
-    stop("Please, set just one output option")
-  if (any(tree$edge.length == 0))
-    tree$edge.length[which(tree$edge.length < max(diag(vcv(tree)))/1000)] <- tree$edge.length[which(tree$edge.length <
-                                                                                                      max(diag(vcv(tree)))/1000)] + max(diag(vcv(tree))) *
-      0.001
-  if (!is.null(clust))
-    clust <- detectCores() * clust
-  start_data <- input_data[sapply(input_data, function(xx) class(xx)[1] ==
+    if (evaluate_imputed & length(eval.args$eval_metric_for_imputation) >
+        1)
+      stop("Please, set just one evaluation metric for imputation")
+    if (evaluate_imputed & length(eval.args$output_options) > 1)
+      stop("Please, set just one output option")
+    if (any(tree$edge.length == 0))
+      tree$edge.length[which(tree$edge.length < max(diag(vcv(tree)))/1000)] <- tree$edge.length[which(tree$edge.length <
+                                                                                                        max(diag(vcv(tree)))/1000)] + max(diag(vcv(tree))) *
+        0.001
+    if (!is.null(clust))
+      clust <- detectCores() * clust
+    start_data <- input_data[sapply(input_data, function(xx) class(xx)[1] ==
+                                      "sf")]
+    add_data <- input_data[sapply(input_data, function(xx) class(xx)[1] !=
                                     "sf")]
-  add_data <- input_data[sapply(input_data, function(xx) class(xx)[1] !=
-                                  "sf")]
-  cc <- c(sapply(start_data, function(x) sum(as.data.frame(x)[,
-                                                              obs_col])) < min_occ_enfa, as.numeric(sapply(add_data,
-                                                                                                           function(x) nrow(x[[1]]$formatted_data$input_ones))) <
-            min_occ_enfa)
-  if (sum(cc)>= length(input_data) * 0.3) {
-    xx <- sort(c(sapply(start_data, function(x) sum(as.data.frame(x)[,
-                                                                     obs_col])), as.numeric(sapply(add_data, function(x) nrow(x[[1]]$formatted_data$input_ones)))))[ceiling(length(input_data) *
-                                                                                                                                                                              0.1)]
-    min_occ_enfa <- xx + 1
-    warning(paste("The number of species with occurrences below min_occ_enfa exceeds the 30% of total species.\n min_occ_enfa value was reduced to",
-                  xx, sep = " "))
-  }
-  all_models <- mapply(function(data, nam) {
-    cat(paste("\n", "Modelling", nam, "with ENFA", "\n"))
-    if (is.null(time_col)) {
-      prova <- subset(data, as.data.frame(data)[, obs_col] ==
-                        0)
-    }else {
-      prova <- subset(data, as.data.frame(data)[, obs_col] ==
-                        0 & as.data.frame(data)[, time_col] == unique(as.data.frame(data)[,
-                                                                                          time_col])[1])
-    }
-    qq <- input_mask
-    vv <- prova[, obs_col]
-    vv <- vect(vv)
-    ex <- extract(qq, vv)
-    qq <- rasterize(vv, qq)
-    qq_RTP <- apply(crds(qq), 2, range)
-    qq_RTP <- ext(qq_RTP[, 1], qq_RTP[, 2])
-    qq_RTP <- extend(qq_RTP, res(qq)[1])
-    maskk <- crop(qq, qq_RTP)
-    mydata <- DATA_PREPARATION(species_input_data = data,
-                               obs_col = obs_col, input_mask = maskk, time_col = time_col)
-    if (nrow(mydata$ones_coords) >= min_occ_enfa) {
-      mymodel <- ENFA_CALIBRATION(formatted_data = mydata,
-                                  boot_test_perc = boot_test_perc, boot_reps = boot_reps,
-                                  sig_axes_selection = "brStick", clust = clust)
-      cat(paste("\n", "Modelling", nam, "with ENFA: done.", "\n"))
-    }else {
-      mymodel = NULL
-      cat(paste("\n", "Modelling", nam, "with ENFA: skipped.", "\n"))
-    }
-    if (!is.null(mymodel)) {
-      model_outputs <- list(call = "calibrated_enfa", formatted_data = mydata,
-                            calibrated_model = mymodel)
-      model_outputs <- list(model_outputs)
-      names(model_outputs) <- nam
-      dir.create(file.path("ENphylo_enfa_models", nam),
-                 recursive = TRUE)
 
-      writeRaster(model_outputs[[1]]$formatted_data$study_area,
-                  filename = paste0("ENphylo_enfa_models/", nam, "/study_area.tif"),
-                  overwrite=TRUE)
+    all_models <- mapply(function(data, nam) {
+      cat(paste("\n", "Modelling", nam, "with ENFA", "\n"))
+      if (is.null(time_col)) {
+        prova <- subset(data, as.data.frame(data)[, obs_col] ==
+                          0)
+      } else {
+        prova <- subset(data, as.data.frame(data)[, obs_col] ==
+                          0 & as.data.frame(data)[, time_col] == unique(as.data.frame(data)[,
+                                                                                            time_col])[1])
+      }
+      qq <- input_mask
+      vv <- prova[, obs_col]
+      vv <- vect(vv)
+      ex <- extract(qq, vv)
+      qq1 <- rasterize(vv, qq)
+      qq_RTP <- apply(crds(qq1), 2, range)
+      qq_RTP <- ext(qq_RTP[, 1], qq_RTP[, 2])
+      qq_RTP <- extend(qq_RTP, res(qq)[1])
+      maskk <- crop(qq, qq_RTP)
+      mydata <- DATA_PREPARATION(species_input_data = data,
+                                 obs_col = obs_col, input_mask = maskk, time_col = time_col)
+      if (nrow(mydata$ones_coords) >= min_occ_enfa) {
+        mymodel <- ENFA_CALIBRATION(formatted_data = mydata,
+                                    boot_test_perc = boot_test_perc, boot_reps = boot_reps,
+                                    sig_axes_selection = "brStick", clust = clust)
+        cat(paste("\n", "Modelling", nam, "with ENFA: done.",
+                  "\n"))
+      } else {
+        mymodel = NULL
+        cat(paste("\n", "Modelling", nam, "with ENFA: skipped.",
+                  "\n"))
+      }
+      return(list(call = "calibrated_enfa", formatted_data = mydata,
+                  calibrated_model = mymodel))
+    }, data = start_data, nam = names(start_data), SIMPLIFY = FALSE)
+    names(all_models) <- names(start_data)
 
-      model_outputs[[1]]$formatted_data$study_area<-NULL
-      save(model_outputs, file = paste0("ENphylo_enfa_models/",
-                                        nam, "/output_model.RData"))
-    }
-    mydata$study_area<-NULL
-    return(list(call = "calibrated_enfa", formatted_data = mydata,
-                calibrated_model = mymodel))
-  }, data = start_data, nam = names(start_data), SIMPLIFY = FALSE)
-  names(all_models) <- names(start_data)
-  if (length(add_data) > 0) {
-    add_mm <- unlist(add_data, recursive = FALSE, use.names = FALSE)
-    names(add_mm) <- names(add_data)
-  } else add_mm <- NULL
-  all_models <- c(add_mm, all_models)
-  all_models <- all_models[match(names(input_data), names(all_models))]
-  enf_mod <- all_models
-  if (evaluate_imputed) {
-    check <- sapply(all_models, function(k) {
-      if (!is.null(k$calibrated_model)) {
-        mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
-          eval_threshold
-      }
-      else TRUE
-    })
-    vv <- eval_threshold
-    if (sum(check) > (length(input_data) * 30/100)) {
-      repeat {
-        vv <- vv * 0.95
-        check <- sapply(all_models, function(k) {
-          if (!is.null(k$calibrated_model)) {
-            mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
-              vv
-          }
-          else TRUE
-        })
-        if (sum(check) <= (length(input_data) * 30/100))
-          break
-      }
+    if (length(add_data) > 0) {
+      add_mm <- unlist(add_data, recursive = FALSE, use.names = FALSE)
+      names(add_mm) <- names(add_data)
+    } else add_mm <- NULL
+    all_models <- c(add_mm, all_models)
+    all_models <- all_models[match(names(input_data), names(all_models))]
+    enf_mod <- all_models
+
+    if (evaluate_imputed) {
+
       all_models <- lapply(all_models, function(k) {
         if (!is.null(k$calibrated_model)) {
-          if (mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
-              vv) {
-            k <- list(call = k$call, formatted_data = k$formatted_data,
-                      calibrated_model = NULL)
-          }
-        }
-        k
-      })
-      warning(paste("eval_threshold value for ENFA models evaluation was reduced to",
-                    vv, "because more than 30% of species have to be modelled with phylogenetic imputation",
-                    sep = " "))
-    }
-    else {
-      all_models <- lapply(all_models, function(k) {
-        if (!is.null(k$calibrated_model)) {
-          if (mean(k$calibrated_model$evaluation[, eval_metric_for_imputation]) <
-              vv) {
+          if (mean(k$calibrated_model$evaluation[, eval.args$eval_metric_for_imputation]) <
+              eval.args$eval_threshold) {
             k <- list(call = k$call, formatted_data = k$formatted_data,
                       calibrated_model = NULL)
           }
@@ -367,43 +307,146 @@ ENphylo_modeling<-function (input_data = NULL,
         k
       })
     }
-  }
-  if (all(sapply(all_models, function(k) !is.null(k$calibrated_model)) ==
-          TRUE)) {
-    warning("All species are modelled with Enfa")
-  }else {
-    if (any(tree$tip.label %in% names(all_models) == FALSE)) {
-      sp <- tree$tip.label[!tree$tip.label %in% names(all_models)]
-      tree <- drop.tip(tree, sp)
-      warning(paste(as.data.frame(sp), " not present in input_data. They will be dropped from the tree",
-                    sep = ""))
-    }
-    if (nsim == 0)
-      stop("Please, set nsim as an integer >0")
-    myimputed <-IMPUTED_CALIBRATION(ENFA_output = all_models,
-                                    tree = tree, nsim = nsim, si = si, si2 = si2, clust = clust,
-                                    evaluate = evaluate_imputed, boot_test_perc = boot_test_perc,
-                                    boot_reps = boot_reps, output_options = output_options,
-                                    eval.metric = eval_metric_for_imputation, eval_threshold = eval_threshold)
-    sel <- lapply(names(myimputed), function(x) {
-      if (is.null(enf_mod[x][[1]]$calibrated_model)) {
-        TRUE
-      }else{
-        a <- mean(enf_mod[x][[1]]$calibrated_model$evaluation[,
-                                                              eval_metric_for_imputation])
-        b <- mean(myimputed[x][[1]]$evaluation[, eval_metric_for_imputation])
-        b > a
+
+
+    if (all(sapply(all_models, function(k) !is.null(k$calibrated_model)) ==
+            TRUE)) {
+      print("All species are modelled with Enfa")
+    } else {
+
+      if (any(tree$tip.label %in% names(all_models) == FALSE)) {
+        sp <- tree$tip.label[!tree$tip.label %in% names(all_models)]
+        tree <- drop.tip(tree, sp)
+        warning("Some species are not present in input_data. They will be dropped from the tree")
       }
-    })
-    myimputed <- myimputed[which(sel == TRUE)]
-    myimputed <- mapply(function(x, y) {
-      list(call = "calibrated_imputed", formatted_data = y$formatted_data,
-           calibrated_model = x)
-    }, x = myimputed, y = all_models[names(myimputed)], SIMPLIFY = FALSE)
-    w <- match(names(myimputed), names(enf_mod))
-    enf_mod[w] <- myimputed
-    all_models <- enf_mod
-  }
-  return(all_models)
+
+      all_models[!sapply(all_models,function(j)is.null(j$calibrated_model))]->all_good
+      all_models[sapply(all_models,function(j)is.null(j$calibrated_model))]->all_out
+
+      if (length(all_out)>length(all_good)*0.3){
+
+        tree$tip.label[tree$tip.label%in%names(all_out)]->imps->impa
+        treeX<-list()
+        e=1
+        length(impa)->ll
+        k=floor((Ntip(tree)-ll)*.3)
+        repeat{
+          as.dist(cophenetic.phylo(tree)[imps,imps])->d
+          if(length(d)==0){
+            keep.tip(tree,c(names(all_good),imps))->treeX[[e]]
+            imps[-which(imps%in%sels)]->imps
+          } else {
+            hclust(d,method = "complete")->hc
+            if(length(d)==1){
+              keep.tip(tree,c(names(all_good),imps))->treeX[[e]]
+              imps[-which(imps%in%sels)]->imps
+            } else {
+
+              if(length(imps)<k){
+                keep.tip(tree,c(names(all_good),imps))->treeX[[e]]
+                imps[-which(imps%in%sels)]->imps
+              } else {
+                c <- cutree(hc, k = k)
+                tapply(c,as.factor(c),function(x) sample(names(x),1))->sels
+                keep.tip(tree,c(names(all_good),sels))->treeX[[e]]
+                imps[-which(imps%in%sels)]->imps
+              }
+            }
+          }
+          e=e+1
+          if(length(imps)==0) break
+        }
+
+        print(paste0("Since more than 30% of the total species have to be modelled with phylogenetic imputation, the phylogenetic tree was split in ",
+                     length(treeX)," different phylogenies"))
+
+      } else {
+
+        tree->treeX
+
+      }
+
+      myimputed<-list()
+      for (jj in 1:length(treeX)){
+        if (swap.args$nsim == 0)
+          stop("Please, set nsim as an integer > 0")
+
+        all_models[names(all_models)%in%treeX[[jj]]$tip.label]->enf
+
+        myimputed[[jj]]<-IMPUTED_CALIBRATION(ENFA_output = enf,
+                                             tree = treeX[[jj]], nsim = swap.args$nsim, si = swap.args$si, si2 = swap.args$si2, clust = clust,
+                                             evaluate = evaluate_imputed, boot_test_perc = boot_test_perc,
+                                             boot_reps = boot_reps, output_options = eval.args$output_options,
+                                             eval.metric = eval.args$eval_metric_for_imputation, eval_threshold = eval.args$eval_threshold)
+      }
+
+      gc()
+
+      unlist(myimputed,recursive=F)->myimputed
+
+      sel <- lapply(names(myimputed), function(x) {
+        if (is.null(enf_mod[x][[1]]$calibrated_model)) {
+          TRUE
+        } else {
+          a <- mean(enf_mod[x][[1]]$calibrated_model$evaluation[,
+                                                                eval.args$eval_metric_for_imputation])
+          b <- mean(myimputed[x][[1]]$evaluation[, eval.args$eval_metric_for_imputation])
+          b > a
+        }
+      })
+      myimputed <- myimputed[which(sel == TRUE)]
+
+      myimputed <- mapply(function(x, y) {
+        list(call = "calibrated_imputed", formatted_data = y$formatted_data,
+             calibrated_model = x)
+      }, x = myimputed, y = all_models[names(myimputed)], SIMPLIFY = FALSE)
+      w <- match(names(myimputed), names(enf_mod))
+
+      rm(all_good)
+      rm(all_out)
+
+      enf_mod[w] <- myimputed
+
+
+      if (length(add_data) < 1) {
+        enf_mod2 <- enf_mod
+      } else {
+        enf_mod2 <- enf_mod[-which(names(enf_mod) %in% names(add_data))]
+      }
+
+      lapply(1:length(enf_mod2), function(bb) {
+        if (enf_mod2[[bb]]$call == "calibrated_enfa") {
+          model_outputs <- enf_mod2[bb]
+          dir.create(file.path(output.dir,"ENphylo_enfa_models",names(model_outputs)),
+                     recursive = TRUE)
+          writeRaster(enf_mod2[[bb]]$formatted_data$study_area,
+                      filename = paste0(output.dir,"/ENphylo_enfa_models/",names(model_outputs),"/study_area.tif"),
+                      overwrite = TRUE)
+          model_outputs[[1]]$formatted_data$study_area <- NULL
+          save(model_outputs,
+               file = paste0(output.dir,"/ENphylo_enfa_models/",names(model_outputs),"/model_outputs.RData"))
+        }
+        if (enf_mod2[[bb]]$call == "calibrated_imputed") {
+          model_outputs <- enf_mod2[bb]
+          dir.create(file.path(output.dir,"ENphylo_imputed_models",names(model_outputs)),
+                     recursive = TRUE)
+          writeRaster(enf_mod2[[bb]]$formatted_data$study_area,
+                      filename = paste0(output.dir,"/ENphylo_imputed_models/",names(model_outputs),"/study_area.tif"),
+                      overwrite = TRUE)
+
+          model_outputs[[1]]$formatted_data$study_area <- NULL
+          save(model_outputs,
+               file = paste0(output.dir,"/ENphylo_imputed_models/",names(model_outputs),"/model_outputs.RData"))
+        }
+      })
+
+      lapply(1:length(enf_mod), function(jj) enf_mod[[jj]]$formatted_data$study_area <<- NULL)
+
+      all_models <- enf_mod
+
+    }
+
+    return(all_models)
 }
+
 

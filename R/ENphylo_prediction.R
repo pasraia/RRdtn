@@ -5,21 +5,19 @@
 #'  convert marginality and specialization factors in habitat suitability values
 #'  by using the Mahalanobis distances method.
 #'@usage ENphylo_prediction(object, newdata,
-#'  convert.to.suitability=FALSE,output.dir=NULL)
+#'  convert.to.suitability=FALSE,output.dir='.',proj_name="outputs")
 #'@param object a \code{list} returned by the \code{\link{ENphylo_modeling}}
-#'  function where all the species are modelled with ENFA or ENphylo models.
-#'@param newdata a set of explanatory variables onto which ENFA or ENphylo
-#'  models will be projected. It could be a \code{data.frame} or a
-#'  \code{SpatRaster} object.
+#'  function where all the species are modeled with ENFA or ENphylo models.
+#'@param newdata a \code{SpatRaster} object including explanatory variables onto
+#'  which ENFA or ENphylo models are to be projected.
 #'@param convert.to.suitability logical. If \code{TRUE},
 #'  \code{ENphylo_prediction} projects ENFA or ENphylo model predictions in
 #'  other areas and other time scales.
-#'@param output.dir under \code{convert.to.suitability=TRUE}, the file path
-#'  wherein \code{ENphylo_prediction} creates an "Enphylo_prediction" folder to
-#'  store prediction outputs for each species. If \code{newdata} is a
-#'  \code{SpatRaster} object, \code{SpatRaster} outputs in .tif format will be
-#'  saved. If \code{newdata} is a \code{data.frame}, \code{data.frame} outputs
-#'  will be saved as .RData file.
+#'@param output.dir the file path wherein \code{ENphylo_prediction} creates an
+#'  "ENphylo_prediction" folder to store prediction outputs \code{SpatRaster}s
+#'  in .tif format for each species.
+#'@param proj_name name of the folder stored within the individual species
+#'  folders to contain the \code{ENphylo_prediction} outputs.
 #'@author Alessandro Mondanaro, Mirko Di Febbraro, Silvia Castiglione, Carmela
 #'  Serio, Marina Melchionna, Pasquale Raia
 #'@details If \code{convert.to.suitability} is set as \code{TRUE},
@@ -33,48 +31,34 @@
 #'  presence/absence values, \code{ENphylo_prediction} relies on
 #'  \code{\link{optimal.thresholds}} function in the package
 #'  \pkg{PresenceAbsence} (\cite{Freeman & Moisen, 2008}).
-#'@return A list of length equal to the number of modelled species. For each
-#'  element of the list, the output objects differ depending on whether ENFA or
-#'  ENphylo is implemented and if a \code{SpatRaster} or data.frame object is
-#'  provided by the user as new environments where to project the model.
-#'  Furthermore, if the \code{convert.to.suitability=TRUE}, each element of the
-#'  list includes the habitat suitability values in addition to model
-#'  predictions for marginality and specialization. In any case, each element of
-#'  the output list contains two elements:
-#'@return ENFA/\code{SpatRaster}
+#'@return A list of length equal to the number of modeled species. For each
+#'  element of the list, the output objects differ depending on whether the
+#'  input \code{object} is an ENFA or ENphylo model. Furthermore, if
+#'  \code{convert.to.suitability=TRUE}, each element of the list includes the
+#'  habitat suitability values, in addition to model predictions for marginality
+#'  and specialization.
+#'@return ENFA
 #'@return \enumerate{ \item\strong{$call}: a character specifying the algorithm
-#'  used for the model predictions. \item\strong{$enfa_prediction}: a list of
+#'  used for model predictions. \item\strong{$enfa_prediction}: a list of
 #'  \code{SpatRaster} objects including marginality and specialization model
-#'  predictions plus the habitat suitability and binary presence/absence maps
-#'  obtained by using three different predefined thresholds: MaxSensSpec (i.e.
-#'  maximize TSS), SensSpec (i.e. equalize sensitivity and specificity) and 10th
-#'  percentile of predicted probability. Habitat suitability estimates and
-#'  binary values are calculated only if \code{convert.to.suitability = TRUE}.}
-#'@return ENFA/data.frame
+#'  predictions obtained by using three different predefined thresholds:
+#'  MaxSensSpec (i.e. maximize TSS), SensSpec (i.e. equalize sensitivity and
+#'  specificity) and 10th percentile of predicted probability. Habitat
+#'  suitability estimates and binary presence/absence maps are calculated under
+#'  \code{convert.to.suitability = TRUE}.}
+#'@return ENphylo
 #'@return \enumerate{ \item\strong{$call}: a character specifying the algorithm
-#'  used for the model predictions.\item\strong{$enfa_prediction}: a data.frame
-#'  containing marginality and specialization model predictions and the habitat
-#'  suitability values (only if \code{convert.to.suitability = TRUE}).}
-#'@return ENphylo/\code{SpatRaster}
-#'@return \enumerate{ \item\strong{$call}: a character specifying the algorithm
-#'  used for the model predictions. \item\strong{$imputed_prediction}: a list of
+#'  used for model predictions. \item\strong{$imputed_prediction}: a list of
 #'  \code{SpatRaster} objects including marginality and specialization model
-#'  predictions. The layer number of each \code{SpatRaster} is equal to the
-#'  integer number chosen for testing alternative phylogenies (i.e. \code{nsim}
-#'  argument). If \code{convert.to.suitability = TRUE}, in addition to
-#'  marginality and specialization, the function provides \code{SpatRaster}
-#'  objects containing habitat suitability and binary presence/absence maps (see
-#'  above) for each tested phylogeny.}
-#'@return ENphylo/data.frame
-#'@return \enumerate{ \item\strong{$call}: a character specifying the algorithm
-#'  used for the model predictions. \item\strong{$imputed_prediction}: a list of
-#'  data.frame objects of length equal to the integer number chosen for testing
-#'  alternative phylogenies (i.e. \code{nsim} argument) containing marginality
-#'  and specialization model predictions and the habitat suitability values
-#'  (only if \code{convert.to.suitability argument = TRUE}).}
-#'@importFrom terra app rast nlyr
+#'  predictions. The number of layers of each \code{SpatRaster} is equal to the
+#'  number of alternative phylogenies
+#'  tested within \code{ENphylo_modeling}. If \code{convert.to.suitability =
+#'  TRUE}, the function additionally provides \code{SpatRaster} objects
+#'  containing habitat suitability and binary presence/absence maps for each
+#'  tested phylogeny.}
 #'@importFrom biomod2 bm_BinaryTransformation
 #'@importFrom stats quantile
+#'@importFrom terra app rast nlyr
 #'@export
 #'@references Calenge, C. (2006) The package adehabitat for the R software: a
 #'  tool for the analysis of space and habitat use by animals. \emph{Ecological
@@ -93,7 +77,7 @@
 #' download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
 #' unzip("ENphylo code&data 2.zip")
 #' load("ENphylo code&data/example_data.RData")
-#' ### NOTE: the object enfa_all_species is no longer necessary with RRdtn >= 0.5.2 ,
+#' ### NOTE: the object enfa_all_species is no longer necessary with RRgeo,
 #' ### it can be removed from the example environment
 #'
 #' MASK_FULL<-terra::rast("ENphylo code&data/variable_bio1.tif")
@@ -114,7 +98,8 @@
 #' ENmod_pred<-ENphylo_prediction(object=ENmod[1],
 #'                               newdata=external_data,
 #'                               convert.to.suitability=TRUE,
-#'                               output.dir=main.dir)
+#'                               output.dir=main.dir,
+#'                               proj_name="ENmod_pred")
 #'
 #' ### CASE 2
 #' ## Simulating a rare species by subsampling its occurrences to force run ENphylo algorithm
@@ -140,14 +125,16 @@
 #'                               min_occ_enfa=npoints+1,
 #'                               eval_metric_for_imputation="AUC",
 #'                               eval_threshold=0.7,
-#'                               output_options = "best")
+#'                               output_options = "best",
+#'                               proj_name="ENmod_subsam")
 #' gc()
 #'
 #' # Predicting for the k species in ENmod_subsam output
 #' ENmod_subsam_pred<-ENphylo_prediction(object=ENmod_subsam[k],
 #'                                      newdata=external_data,
 #'                                      convert.to.suitability=TRUE,
-#'                                      output.dir=main.dir)
+#'                                      output.dir=main.dir,
+#'                                      proj_name="ENmod_subsam_pred")
 #'
 #'
 #'}
@@ -155,10 +142,14 @@
 ENphylo_prediction<-function (object,
                               newdata,
                               convert.to.suitability = FALSE,
-                              output.dir = NULL){
+                              output.dir = '.',
+                              proj_name="outputs")
+{
   if (!(extends(class(newdata), "SpatRaster") | is.matrix(newdata) |
         is.data.frame(newdata)))
     stop("Please, provide newdata as a SpatRaster object or a data.frame")
+  if (is.null(output.dir))
+    output.dir <- getwd()
   x <- newdata
   if (is.null(names(object))) {
     if (object[[1]]$call == "enfa") {
@@ -172,7 +163,7 @@ ENphylo_prediction<-function (object,
           }
         ras <- app(x, fun = f1)
         names(ras) <- names(object[[1]]$sf)
-      }else {
+      } else {
         if (!(all(colnames(x) %in% rownames(U)) & all(rownames(U) %in%
                                                       colnames(x))))
           stop("Variable names in newdata must match with those used to calibrate models") else {
@@ -212,84 +203,45 @@ ENphylo_prediction<-function (object,
       if (ob$call == "calibrated_enfa") {
         U <- ob$calibrated_model$full_model$co
         f1 <- function(y) y %*% U
-        if (extends(class(x), "SpatRaster")) {
-          if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                     names(x))))
-            stop("Variable names in newdata must match with those used to calibrate models") else {
-              x <- x[[match(rownames(U), names(x))]]
-            }
-          ras <- app(x, fun = f1)
-          names(ras) <- names(ob$calibrated_model$full_model$sf)
-          ras <- ras[[1:ob$calibrated_model$full_model$significant_axes]]
-          ras
-        } else {
-          if (!(all(colnames(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                        colnames(x))))
-            stop("Variable names in newdata must match with those used to calibrate models") else {
-              x <- x[, match(rownames(U), colnames(x))]
-            }
-          ras <- t(apply(x, 1, f1))
-          colnames(ras) <- names(ob$calibrated_model$full_model$sf)
-          ras <- as.data.frame(ras[, 1:ob$calibrated_model$full_model$significant_axes])
-          ras
-        }
+        if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                   names(x))))
+          stop("Variable names in newdata must match with those used to calibrate models") else {
+            x <- x[[match(rownames(U), names(x))]]
+          }
+        ras <- app(x, fun = f1)
+        names(ras) <- names(ob$calibrated_model$full_model$sf)
+        ras <- ras[[1:ob$calibrated_model$full_model$significant_axes]]
+        ras
         ras <- list(call = "enfa_prediction", enfa_prediction = ras)
       }
       if (ob$call == "calibrated_imputed") {
         ras <- lapply(ob$calibrated_model$co, function(co) {
           U <- co
           f1 <- function(y) y %*% U
-          if (extends(class(x), "SpatRaster")) {
-            if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
-                                                       names(x))))
-              stop("Variable names in newdata must match with those used to calibrate models") else {
-                x <- x[[match(rownames(U), names(x))]]
-              }
-            ras <- app(x, fun = f1)
-            names(ras) <- colnames(U)
-            ras
-          } else {
-            if (!(all(colnames(x) %in% rownames(U)) &
-                  all(rownames(U) %in% colnames(x))))
-              stop("Variable names in newdata must match with those used to calibrate models") else {
-                x <- x[, match(rownames(U), colnames(x))]
-              }
-            ras <- t(apply(x, 1, f1))
-            colnames(ras) <- colnames(U)
-            ras <- as.data.frame(ras)
-          }
-        })
-        if (extends(class(x), "SpatRaster")) {
-          ras <- lapply(1:nlyr(ras[[1]]), function(i) rast(lapply(ras,
-                                                                  "[[", i)))
-          names(ras)[1] <- "Marg"
-          names(ras)[-1] <- paste("Spec", 1:(length(ras) -
-                                               1), sep = "")
-          ras <- lapply(ras, function(o) {
-            if (any(grepl("evaluation", names(ob$calibrated_model)))) {
-              names(o) <- rownames(ob$calibrated_model$evaluation)
-            } else {
-              names(o) <- paste("swap", 1:nlyr(o), sep = "_")
+          if (!(all(names(x) %in% rownames(U)) & all(rownames(U) %in%
+                                                     names(x))))
+            stop("Variable names in newdata must match with those used to calibrate models") else {
+              x <- x[[match(rownames(U), names(x))]]
             }
-            o
-          })
-        } else {
+          ras <- app(x, fun = f1)
+          names(ras) <- colnames(U)
+          ras
+        })
+        ras <- lapply(1:nlyr(ras[[1]]), function(i) rast(lapply(ras,
+                                                                "[[", i)))
+        names(ras)[1] <- "Marg"
+        names(ras)[-1] <- paste("Spec", 1:(length(ras) -
+                                             1), sep = "")
+        ras <- lapply(ras, function(o) {
           if (any(grepl("evaluation", names(ob$calibrated_model)))) {
-            ras <- mapply(function(x, y) {
-              x$swap_rep <- y
-              x
-            }, x = ras, y = rownames(ob$calibrated_model$evaluation),
-            SIMPLIFY = FALSE)
+            names(o) <- rownames(ob$calibrated_model$evaluation)
           } else {
-            ras <- mapply(function(x, y) {
-              x$swap_rep <- y
-              x
-            }, x = ras, y = paste("swap", 1:length(ras),
-                                  sep = "_"), SIMPLIFY = FALSE)
+            names(o) <- paste("swap", 1:nlyr(o), sep = "_")
           }
-        }
+          o
+        })
         if (ob$calibrated_model$output_options[1] ==
-            "best" & extends(class(x), "SpatRaster")) {
+            "best") {
           ras2 <- ras
           ras <- rast(ras)
           names(ras) <- paste(names(ras2), strsplit(names(ras2[[1]]),
@@ -302,38 +254,57 @@ ENphylo_prediction<-function (object,
           warning("The weighted mean of model predictions using OMR provides misleading results")
         if (ob$calibrated_model$output_options[1] ==
             "weighted.mean") {
-          if (extends(class(x), "SpatRaster")) {
-            ras <- list(Reduce("+", Map("*", lapply(1:nlyr(ras[[1]]),
-                                                    function(i) rast(lapply(ras, "[[", i))),
-                                        ob$calibrated_model$evaluation[, ob$calibrated_model$output_options[2]]))/nlyr(ras[[1]]))
-            rr <- lapply(1:nlyr(ras[[1]]), function(xx) {
-              dd <- ras[[1]][[xx]]
-              dd
-            })
-            rr <- rast(rr)
-            names(rr) <- paste(names(ras[[1]]), "swap_weighted",
-                               sep = "_")
-            ras <- rr
-            ras
-          } else {
-            ras <- list(Reduce("+", Map("*", lapply(ras,
-                                                    function(xx) xx[, !grepl("swap_rep", colnames(xx))]),
-                                        ob$calibrated_model$evaluation[, ob$calibrated_model$output_options[2]]))/length(ras))
-            ras[[1]]$swap_rep <- "swap_weighted"
-            ras
-          }
+          ras <- list(Reduce("+", Map("*", lapply(1:nlyr(ras[[1]]),
+                                                  function(i) rast(lapply(ras, "[[", i))),
+                                      ob$calibrated_model$evaluation[, ob$calibrated_model$output_options[2]]))/nlyr(ras[[1]]))
+          rr <- lapply(1:nlyr(ras[[1]]), function(xx) {
+            dd <- ras[[1]][[xx]]
+            dd
+          })
+          rr <- rast(rr)
+          names(rr) <- paste(names(ras[[1]]), "swap_weighted",
+                             sep = "_")
+          ras <- rr
+          ras
         }
         ras <- list(call = "imputed_prediction", imputed_prediction = ras)
       }
+
       return(ras)
     })
+
+    setwd(output.dir)
+
+    dir.create("ENphylo_prediction")
+
+    lapply(1:length(ras), function(xx) {
+      if (ras[[xx]]$call == "imputed_prediction") {
+        dir.create(paste0("ENphylo_prediction/",names(ras)[xx], "/", proj_name), recursive = T)
+        lapply(1:nlyr(ras[[xx]]$imputed_prediction), function(jj) {
+          writeRaster(ras[[xx]]$imputed_prediction[[jj]],
+                      file.path("ENphylo_prediction",names(ras)[xx],
+                                proj_name,paste0(names(ras[[xx]]$imputed_prediction)[jj],".tif")),
+                      overwrite = TRUE)
+        })
+      }
+
+      if (ras[[xx]]$call == "enfa_prediction") {
+        dir.create(paste0("ENphylo_prediction/",names(ras)[xx], "/", proj_name), recursive = T)
+        lapply(1:nlyr(ras[[xx]]$enfa_prediction), function(jj) {
+          writeRaster(ras[[xx]]$enfa_prediction[[jj]],
+                      file.path("ENphylo_prediction",names(ras)[xx],
+                                proj_name,paste0(names(ras[[xx]]$enfa_prediction[[jj]]),".tif")),
+                      overwrite = TRUE)
+        })
+      }
+    })
+
   }
+
   if (convert.to.suitability) {
     cat(paste("\n", "CONVERTING PREDICTED VALUES TO SUITABILITY",
               "\n"))
-    if (extends(class(x), "SpatRaster")) {
-      reference <- as.data.frame(x)
-    } else reference <- x
+    reference <- as.data.frame(x)
     ras_suitability <- pblapply(names(object), function(sp) {
       cat(paste("\n", sp, "\n"))
       mydata <- object[[sp]]$formatted_data
@@ -408,120 +379,96 @@ ENphylo_prediction<-function (object,
                                                                2])
         TH <- c(TH, quantile(data_for_th[which(data_for_th$observed ==
                                                  1), ]$pred, 0.1))
-        if (extends(class(x), "SpatRaster")) {
-          hsm1 <- x[[1]]
-          hsm1[!is.na(hsm1)] <- reference$Suitability
-          names(hsm1) <- "Suitability"
-          if (object[[sp]]$call == "calibrated_imputed") {
-            if (any(grepl("evaluation", names(object[[sp]]$calibrated_model)))) {
-              if (object[[sp]]$calibrated_model$output_options[1] ==
-                  "best") {
-                names(hsm1) <- paste("Suitability", rownames(object[[sp]]$calibrated_model$evaluation)[kk],
-                                     sep = "_")
-              }
-              if (object[[sp]]$calibrated_model$output_options[1] ==
-                  "weighted.mean") {
-                names(hsm1) <- paste(names(hsm1), "swap_weighted",
-                                     sep = "_")
-              }
-              if (object[[sp]]$calibrated_model$output_options[1] ==
-                  "full") {
-                names(hsm1) <- paste("Suitability", "swap",
-                                     kk, sep = "_")
-              }
-            } else names(hsm1) <- paste("Suitability",
-                                        "swap", kk, sep = "_")
-          }
-        } else {
-          hsm1 <- reference[, "Suitability", drop = FALSE]
+        hsm1 <- x[[1]]
+        hsm1[!is.na(hsm1)] <- reference$Suitability
+        names(hsm1) <- "Suitability"
+        if (object[[sp]]$call == "calibrated_imputed") {
+          if (any(grepl("evaluation", names(object[[sp]]$calibrated_model)))) {
+            if (object[[sp]]$calibrated_model$output_options[1] ==
+                "best") {
+              names(hsm1) <- paste("Suitability", rownames(object[[sp]]$calibrated_model$evaluation)[kk],
+                                   sep = "_")
+            }
+            if (object[[sp]]$calibrated_model$output_options[1] ==
+                "weighted.mean") {
+              names(hsm1) <- paste(names(hsm1), "swap_weighted",
+                                   sep = "_")
+            }
+            if (object[[sp]]$calibrated_model$output_options[1] ==
+                "full") {
+              names(hsm1) <- paste("Suitability", "swap",
+                                   kk, sep = "_")
+            }
+          } else names(hsm1) <- paste("Suitability", "swap",
+                                      kk, sep = "_")
         }
         return(list(TH, hsm1))
       })
       if (object[[sp]]$call == "calibrated_enfa") {
-        if (extends(class(x), "SpatRaster")) {
-          thh <- lapply(suitability_final, function(xx) {
-            xx <- rast(sapply(xx[[1]], function(yy) bm_BinaryTransformation(xx[[2]],
-                                                                            yy)))
-            names(xx) <- c("SensSpec", "MaxSensSpec",
-                           "TenPerc")
-            xx
-          })
-          names(thh[[1]]) <- paste("Binary", names(thh[[1]]),
-                                   sep = "_")
-          ras[[sp]]$enfa_prediction <- c(ras[[sp]]$enfa_prediction,
-                                         suitability_final[[1]][[2]], thh[[1]])
-        } else {
-          ras[[sp]]$enfa_prediction <- mapply(function(a,
-                                                       b) {
-            cbind(a, b[[2]])
-          }, a = list(ras[[sp]]$enfa_prediction), b = suitability_final,
-          SIMPLIFY = FALSE)
-        }
+        thh <- lapply(suitability_final, function(xx) {
+          xx <- rast(sapply(xx[[1]], function(yy) bm_BinaryTransformation(xx[[2]],
+                                                                          yy)))
+          names(xx) <- c("SensSpec", "MaxSensSpec", "TenPerc")
+          xx
+        })
+        names(thh[[1]]) <- paste("Binary", names(thh[[1]]),
+                                 sep = "_")
+        ras[[sp]]$enfa_prediction <- c(ras[[sp]]$enfa_prediction,
+                                       suitability_final[[1]][[2]], thh[[1]])
         ras_final <- list(call = "enfa_prediction", enfa_prediction = ras[[sp]]$enfa_prediction)
       }
       if (object[[sp]]$call == "calibrated_imputed") {
-        if (extends(class(x), "SpatRaster")) {
-          thh <- lapply(suitability_final, function(xx) {
-            xx <- rast(sapply(xx[[1]], function(yy) bm_BinaryTransformation(xx[[2]],
-                                                                            yy)))
-            names(xx) <- c("SensSpec", "MaxSensSpec",
-                           "TenPerc")
-            xx
-          })
-          thh <- lapply(1:3, function(i) rast(lapply(thh,
-                                                     "[[", i)))
-          if (any(grepl("evaluation", names(object[[sp]]$calibrated_model)))) {
-            if (object[[sp]]$calibrated_model$output_options[1] ==
-                "best") {
-              thh <- lapply(thh, function(jj) {
-                names(jj) <- paste("Binary", strsplit(names(jj[[1]]),
-                                                      "[.]")[[1]][1], rownames(object[[sp]]$calibrated_model$evaluation),
-                                   sep = "_")
-                jj
-              })
-            }
-            if (object[[sp]]$calibrated_model$output_options[1] ==
-                "weighted.mean") {
-              thh <- lapply(thh, function(jj) {
-                names(jj) <- paste("Binary", strsplit(names(jj[[1]]),
-                                                      "[.]")[[1]][1], "swap_weighted", sep = "_")
-                jj
-              })
-            }
-            if (object[[sp]]$calibrated_model$output_options[1] ==
-                "full") {
-              thh <- lapply(thh, function(jj) {
-                names(jj) <- paste(strsplit(names(jj[[1]]),
-                                            "[.]")[[1]][1], "swap", 1:nlyr(jj),
-                                   sep = "_")
-                jj
-              })
-            }
-          } else {
+        thh <- lapply(suitability_final, function(xx) {
+          xx <- rast(sapply(xx[[1]], function(yy) bm_BinaryTransformation(xx[[2]],
+                                                                          yy)))
+          names(xx) <- c("SensSpec", "MaxSensSpec", "TenPerc")
+          xx
+        })
+        thh <- lapply(1:3, function(i) rast(lapply(thh,
+                                                   "[[", i)))
+        if (any(grepl("evaluation", names(object[[sp]]$calibrated_model)))) {
+          if (object[[sp]]$calibrated_model$output_options[1] ==
+              "best") {
+            thh <- lapply(thh, function(jj) {
+              names(jj) <- paste("Binary", strsplit(names(jj[[1]]),
+                                                    "[.]")[[1]][1], rownames(object[[sp]]$calibrated_model$evaluation),
+                                 sep = "_")
+              jj
+            })
+          }
+          if (object[[sp]]$calibrated_model$output_options[1] ==
+              "weighted.mean") {
+            thh <- lapply(thh, function(jj) {
+              names(jj) <- paste("Binary", strsplit(names(jj[[1]]),
+                                                    "[.]")[[1]][1], "swap_weighted", sep = "_")
+              jj
+            })
+          }
+          if (object[[sp]]$calibrated_model$output_options[1] ==
+              "full") {
             thh <- lapply(thh, function(jj) {
               names(jj) <- paste(strsplit(names(jj[[1]]),
                                           "[.]")[[1]][1], "swap", 1:nlyr(jj), sep = "_")
               jj
             })
           }
-          if (object[[sp]]$calibrated_model$output_options[1] ==
-              "full") {
-            ras[[sp]]$imputed_prediction <- c(ras[[sp]]$imputed_prediction,
-                                              Suitability = rast(lapply(suitability_final,
-                                                                        "[[", 2)), Binary_SensSpec = thh[[1]],
-                                              Binary_MaxSensSpec = thh[[2]], Binary_TenPerc = thh[[3]])
-          } else {
-            ras[[sp]]$imputed_prediction <- c(ras[[sp]]$imputed_prediction,
-                                              rast(lapply(suitability_final, "[[", 2)),
-                                              thh[[1]], thh[[2]], thh[[3]])
-          }
         } else {
-          ras[[sp]]$imputed_prediction <- mapply(function(a,
-                                                          b) {
-            cc <- cbind(a, b[[2]])
-            cc
-          }, a = ras[[sp]]$imputed_prediction, b = suitability_final,
-          SIMPLIFY = FALSE)
+          thh <- lapply(thh, function(jj) {
+            names(jj) <- paste(strsplit(names(jj[[1]]),
+                                        "[.]")[[1]][1], "swap", 1:nlyr(jj), sep = "_")
+            jj
+          })
+        }
+        if (object[[sp]]$calibrated_model$output_options[1] ==
+            "full") {
+          ras[[sp]]$imputed_prediction <- c(ras[[sp]]$imputed_prediction,
+                                            Suitability = rast(lapply(suitability_final,
+                                                                      "[[", 2)), Binary_SensSpec = thh[[1]],
+                                            Binary_MaxSensSpec = thh[[2]], Binary_TenPerc = thh[[3]])
+        } else {
+          ras[[sp]]$imputed_prediction <- c(ras[[sp]]$imputed_prediction,
+                                            rast(lapply(suitability_final, "[[", 2)),
+                                            thh[[1]], thh[[2]], thh[[3]])
         }
         ras_final <- list(call = "imputed_prediction",
                           imputed_prediction = ras[[sp]]$imputed_prediction)
@@ -530,23 +477,29 @@ ENphylo_prediction<-function (object,
     })
     names(ras_suitability) <- names(ras)
     ras <- ras_suitability
-    lapply(1:length(ras), function(gg) {
-      if (extends(class(ras[[gg]][[2]]), "SpatRaster")) {
-        dir.create(paste0(output.dir, "/", "ENphylo_prediction"))
-        writeRaster(ras[[gg]][[2]], filename = paste0(output.dir,
-                                                      "/", "ENphylo_prediction", "/", names(ras)[gg],
-                                                      ".tif"), overwrite = TRUE)
-      } else {
-        dir.create(paste0(output.dir, "/", "ENphylo_prediction"))
-        save(ras[[gg]][[2]], file = paste0(output.dir,
-                                           "/", "ENphylo_prediction", "/", names(ras)[gg],
-                                           ".RData"))
+    lapply(1:length(ras), function(xx) {
+      if (ras[[xx]]$call == "imputed_prediction") {
+        grep("Suitability|Binary",names(ras[[xx]][[2]]))->good
+        lapply(good,function(jj) {
+          writeRaster(ras[[xx]][[2]][[jj]],
+                      file.path("ENphylo_prediction",names(ras)[xx],proj_name,
+                                paste0(names(ras[[xx]][[2]])[jj],".tif")),
+                      overwrite = TRUE)
+        })
+      }
+
+      if (ras[[xx]]$call == "enfa_prediction") {
+        grep("Suitability|Binary",names(ras[[xx]][[2]]))->good
+        lapply(good,function(jj) {
+          writeRaster(ras[[xx]][[2]][[jj]],
+                      file.path("ENphylo_prediction",names(ras)[xx],proj_name,
+                                paste0(names(ras[[xx]][[2]])[[jj]],".tif")),
+                      overwrite = TRUE)
+        })
       }
     })
   }
   return(ras)
 }
-
-
 
 

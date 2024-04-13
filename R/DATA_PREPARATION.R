@@ -1,7 +1,7 @@
-#' @importFrom terra extract crs cellFromXY
 #' @importFrom sf st_crs st_coordinates st_drop_geometry
 #' @importFrom grDevices dev.new
 #' @importFrom graphics points
+#' @importFrom terra extract crs cellFromXY
 
 DATA_PREPARATION<-function(species_input_data,
                            obs_col = "OBS",
