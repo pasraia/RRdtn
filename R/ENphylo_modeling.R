@@ -236,7 +236,8 @@ ENphylo_modeling<-function (input_data = NULL,
     if (evaluate_imputed & length(eval.args$eval_metric_for_imputation) >
         1)
       stop("Please, set just one evaluation metric for imputation")
-    if (evaluate_imputed & length(eval.args$output_options) > 1)
+    if (evaluate_imputed & length(eval.args$output_options) >
+        1)
       stop("Please, set just one output option")
     if (any(tree$edge.length == 0))
       tree$edge.length[which(tree$edge.length < max(diag(vcv(tree)))/1000)] <- tree$edge.length[which(tree$edge.length <
@@ -248,7 +249,6 @@ ENphylo_modeling<-function (input_data = NULL,
                                       "sf")]
     add_data <- input_data[sapply(input_data, function(xx) class(xx)[1] !=
                                     "sf")]
-
     all_models <- mapply(function(data, nam) {
       cat(paste("\n", "Modelling", nam, "with ENFA", "\n"))
       if (is.null(time_col)) {
@@ -285,17 +285,15 @@ ENphylo_modeling<-function (input_data = NULL,
                   calibrated_model = mymodel))
     }, data = start_data, nam = names(start_data), SIMPLIFY = FALSE)
     names(all_models) <- names(start_data)
-
     if (length(add_data) > 0) {
       add_mm <- unlist(add_data, recursive = FALSE, use.names = FALSE)
       names(add_mm) <- names(add_data)
+      all_models <- c(add_mm, all_models)
     } else add_mm <- NULL
-    all_models <- c(add_mm, all_models)
+
     all_models <- all_models[match(names(input_data), names(all_models))]
     enf_mod <- all_models
-
     if (evaluate_imputed) {
-
       all_models <- lapply(all_models, function(k) {
         if (!is.null(k$calibrated_model)) {
           if (mean(k$calibrated_model$evaluation[, eval.args$eval_metric_for_imputation]) <
@@ -307,83 +305,88 @@ ENphylo_modeling<-function (input_data = NULL,
         k
       })
     }
-
-
     if (all(sapply(all_models, function(k) !is.null(k$calibrated_model)) ==
             TRUE)) {
       print("All species are modelled with Enfa")
-    } else {
 
+      lapply(1:length(all_models), function(bb) {
+        model_outputs <- all_models[bb]
+        dir.create(file.path(output.dir, "ENphylo_enfa_models",
+                             names(model_outputs)), recursive = TRUE)
+        writeRaster(all_models[[bb]]$formatted_data$study_area,
+                    filename = paste0(output.dir, "/ENphylo_enfa_models/",
+                                      names(model_outputs), "/study_area.tif"),
+                    overwrite = TRUE)
+        model_outputs[[1]]$formatted_data$study_area <- NULL
+        save(model_outputs, file = paste0(output.dir,
+                                          "/ENphylo_enfa_models/", names(model_outputs),
+                                          "/model_outputs.RData"))
+      })
+    } else {
       if (any(tree$tip.label %in% names(all_models) == FALSE)) {
         sp <- tree$tip.label[!tree$tip.label %in% names(all_models)]
         tree <- drop.tip(tree, sp)
         warning("Some species are not present in input_data. They will be dropped from the tree")
       }
-
-      all_models[!sapply(all_models,function(j)is.null(j$calibrated_model))]->all_good
-      all_models[sapply(all_models,function(j)is.null(j$calibrated_model))]->all_out
-
-      if (length(all_out)>length(all_good)*0.3){
-
-        tree$tip.label[tree$tip.label%in%names(all_out)]->imps->impa
-        treeX<-list()
-        e=1
-        length(impa)->ll
-        k=floor((Ntip(tree)-ll)*.3)
-        repeat{
-          as.dist(cophenetic.phylo(tree)[imps,imps])->d
-          if(length(d)==0){
-            keep.tip(tree,c(names(all_good),imps))->treeX[[e]]
-            imps[-which(imps%in%sels)]->imps
+      all_good <- all_models[!sapply(all_models, function(j) is.null(j$calibrated_model))]
+      all_out <- all_models[sapply(all_models, function(j) is.null(j$calibrated_model))]
+      if (length(all_out) > length(all_good) * 0.3) {
+        impa <- imps <- tree$tip.label[tree$tip.label %in%
+                                         names(all_out)]
+        treeX <- list()
+        e = 1
+        ll <- length(impa)
+        k = floor((Ntip(tree) - ll) * 0.3)
+        repeat {
+          d <- as.dist(cophenetic.phylo(tree)[imps, imps])
+          if (length(d) == 0) {
+            treeX[[e]] <- keep.tip(tree, c(names(all_good),
+                                           imps))
+            imps <- imps[-which(imps %in% sels)]
           } else {
-            hclust(d,method = "complete")->hc
-            if(length(d)==1){
-              keep.tip(tree,c(names(all_good),imps))->treeX[[e]]
-              imps[-which(imps%in%sels)]->imps
+            hc <- hclust(d, method = "complete")
+            if (length(d) == 1) {
+              treeX[[e]] <- keep.tip(tree, c(names(all_good),
+                                             imps))
+              imps <- imps[-which(imps %in% sels)]
             } else {
-
-              if(length(imps)<k){
-                keep.tip(tree,c(names(all_good),imps))->treeX[[e]]
-                imps[-which(imps%in%sels)]->imps
+              if (length(imps) < k) {
+                treeX[[e]] <- keep.tip(tree, c(names(all_good),
+                                               imps))
+                imps <- imps[-which(imps %in% sels)]
               } else {
                 c <- cutree(hc, k = k)
-                tapply(c,as.factor(c),function(x) sample(names(x),1))->sels
-                keep.tip(tree,c(names(all_good),sels))->treeX[[e]]
-                imps[-which(imps%in%sels)]->imps
+                sels <- tapply(c, as.factor(c), function(x) sample(names(x),
+                                                                   1))
+                treeX[[e]] <- keep.tip(tree, c(names(all_good),
+                                               sels))
+                imps <- imps[-which(imps %in% sels)]
               }
             }
           }
-          e=e+1
-          if(length(imps)==0) break
+          e = e + 1
+          if (length(imps) == 0)
+            break
         }
-
         print(paste0("Since more than 30% of the total species have to be modelled with phylogenetic imputation, the phylogenetic tree was split in ",
-                     length(treeX)," different phylogenies"))
-
+                     length(treeX), " different phylogenies"))
       } else {
-
-        tree->treeX
-
+        treeX <- list(tree)
       }
-
-      myimputed<-list()
-      for (jj in 1:length(treeX)){
+      myimputed <- list()
+      for (jj in 1:length(treeX)) {
         if (swap.args$nsim == 0)
           stop("Please, set nsim as an integer > 0")
-
-        all_models[names(all_models)%in%treeX[[jj]]$tip.label]->enf
-
-        myimputed[[jj]]<-IMPUTED_CALIBRATION(ENFA_output = enf,
-                                             tree = treeX[[jj]], nsim = swap.args$nsim, si = swap.args$si, si2 = swap.args$si2, clust = clust,
-                                             evaluate = evaluate_imputed, boot_test_perc = boot_test_perc,
-                                             boot_reps = boot_reps, output_options = eval.args$output_options,
-                                             eval.metric = eval.args$eval_metric_for_imputation, eval_threshold = eval.args$eval_threshold)
+        enf <- all_models[names(all_models) %in% treeX[[jj]]$tip.label]
+        myimputed[[jj]] <- IMPUTED_CALIBRATION(ENFA_output = enf,
+                                               tree = treeX[[jj]], nsim = swap.args$nsim, si = swap.args$si,
+                                               si2 = swap.args$si2, clust = clust, evaluate = evaluate_imputed,
+                                               boot_test_perc = boot_test_perc, boot_reps = boot_reps,
+                                               output_options = eval.args$output_options, eval.metric = eval.args$eval_metric_for_imputation,
+                                               eval_threshold = eval.args$eval_threshold)
       }
-
       gc()
-
-      unlist(myimputed,recursive=F)->myimputed
-
+      myimputed <- unlist(myimputed, recursive = F)
       sel <- lapply(names(myimputed), function(x) {
         if (is.null(enf_mod[x][[1]]$calibrated_model)) {
           TRUE
@@ -395,57 +398,50 @@ ENphylo_modeling<-function (input_data = NULL,
         }
       })
       myimputed <- myimputed[which(sel == TRUE)]
-
       myimputed <- mapply(function(x, y) {
         list(call = "calibrated_imputed", formatted_data = y$formatted_data,
              calibrated_model = x)
       }, x = myimputed, y = all_models[names(myimputed)], SIMPLIFY = FALSE)
       w <- match(names(myimputed), names(enf_mod))
-
       rm(all_good)
       rm(all_out)
-
       enf_mod[w] <- myimputed
-
-
       if (length(add_data) < 1) {
         enf_mod2 <- enf_mod
       } else {
         enf_mod2 <- enf_mod[-which(names(enf_mod) %in% names(add_data))]
       }
-
       lapply(1:length(enf_mod2), function(bb) {
         if (enf_mod2[[bb]]$call == "calibrated_enfa") {
           model_outputs <- enf_mod2[bb]
-          dir.create(file.path(output.dir,"ENphylo_enfa_models",names(model_outputs)),
-                     recursive = TRUE)
+          dir.create(file.path(output.dir, "ENphylo_enfa_models",
+                               names(model_outputs)), recursive = TRUE)
           writeRaster(enf_mod2[[bb]]$formatted_data$study_area,
-                      filename = paste0(output.dir,"/ENphylo_enfa_models/",names(model_outputs),"/study_area.tif"),
+                      filename = paste0(output.dir, "/ENphylo_enfa_models/",
+                                        names(model_outputs), "/study_area.tif"),
                       overwrite = TRUE)
           model_outputs[[1]]$formatted_data$study_area <- NULL
-          save(model_outputs,
-               file = paste0(output.dir,"/ENphylo_enfa_models/",names(model_outputs),"/model_outputs.RData"))
+          save(model_outputs, file = paste0(output.dir,
+                                            "/ENphylo_enfa_models/", names(model_outputs),
+                                            "/model_outputs.RData"))
         }
         if (enf_mod2[[bb]]$call == "calibrated_imputed") {
           model_outputs <- enf_mod2[bb]
-          dir.create(file.path(output.dir,"ENphylo_imputed_models",names(model_outputs)),
-                     recursive = TRUE)
+          dir.create(file.path(output.dir, "ENphylo_imputed_models",
+                               names(model_outputs)), recursive = TRUE)
           writeRaster(enf_mod2[[bb]]$formatted_data$study_area,
-                      filename = paste0(output.dir,"/ENphylo_imputed_models/",names(model_outputs),"/study_area.tif"),
+                      filename = paste0(output.dir, "/ENphylo_imputed_models/",
+                                        names(model_outputs), "/study_area.tif"),
                       overwrite = TRUE)
-
           model_outputs[[1]]$formatted_data$study_area <- NULL
-          save(model_outputs,
-               file = paste0(output.dir,"/ENphylo_imputed_models/",names(model_outputs),"/model_outputs.RData"))
+          save(model_outputs, file = paste0(output.dir,
+                                            "/ENphylo_imputed_models/", names(model_outputs),
+                                            "/model_outputs.RData"))
         }
       })
-
       lapply(1:length(enf_mod), function(jj) enf_mod[[jj]]$formatted_data$study_area <<- NULL)
-
       all_models <- enf_mod
-
     }
-
     return(all_models)
 }
 
