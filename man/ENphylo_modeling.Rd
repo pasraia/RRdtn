@@ -183,8 +183,8 @@ url<-"https://www.dropbox.com/s/wm7qcuwm0nm35w2/ENphylo\%20code\%26data\%202.zip
 download.file(url,file.path(main.dir,"ENphylo code&data 2.zip"),mode="wb")
 unzip("ENphylo code&data 2.zip")
 load("ENphylo code&data/example_data.RData")
-### NOTE: the object enfa_all_species is no longer necessary with RRgeo,
-### it can be removed from the example environment
+ ### NOTE: the object enfa_all_species is no longer necessary with RRgeo,
+ ### it can be removed from the example environment
 
 MASK_FULL<-terra::rast("ENphylo code&data/variable_bio1.tif")
 external_data<-terra::rast(list.files("ENphylo code&data/external_data",full.names=TRUE))
@@ -192,12 +192,12 @@ external_data<-terra::rast(list.files("ENphylo code&data/external_data",full.nam
 ## NOTE: Given the size of the data, running the function is time-comsuming
 ### CASE 1
 ENmod<-ENphylo_modeling(input_data=DATA_FULL,
-                       tree=tree,
-                       input_mask=MASK_FULL,
-                       obs_col="OBS",
-                       time_col="TIME_factor",
-                       eval_metric_for_imputation = "AUC",
-                       output_options = "best")
+                        tree=tree,
+                        input_mask=MASK_FULL,
+                        obs_col="OBS",
+                        time_col="TIME_factor",
+                        eval.args=list(eval_metric_for_imputation = "AUC",
+                                       output_options = "best"))
 gc()
 
 ### CASE 2
@@ -217,14 +217,14 @@ Species_data->DATA_FULL[[k]]
 
 # Running ENphylo
 ENmod_subsam<-ENphylo_modeling(input_data=DATA_FULL,
-                              tree=tree,
-                              input_mask=MASK_FULL,
-                              obs_col="OBS",
-                              time_col="TIME_factor",
-                              min_occ_enfa=npoints+1,
-                              eval_metric_for_imputation="AUC",
-                              eval_threshold=0.7,
-                              output_options = "best")
+                               tree=tree,
+                               input_mask=MASK_FULL,
+                               obs_col="OBS",
+                               time_col="TIME_factor",
+                               min_occ_enfa=npoints+1,
+                               eval.args=list(eval_metric_for_imputation="AUC",
+                                              eval_threshold=0.7,
+                                              output_options = "best"))
 gc()
 }
 }

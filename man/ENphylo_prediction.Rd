@@ -93,12 +93,12 @@ external_data<-terra::rast(list.files("ENphylo code&data/external_data",full.nam
 ## NOTE: Given the size of the data, running the function is time-comsuming
 ### CASE 1
 ENmod<-ENphylo_modeling(input_data=DATA_FULL,
-                       tree=tree,
-                       input_mask=MASK_FULL,
-                       obs_col="OBS",
-                       time_col="TIME_factor",
-                       eval_metric_for_imputation = "AUC",
-                       output_options = "best")
+                        tree=tree,
+                        input_mask=MASK_FULL,
+                        obs_col="OBS",
+                        time_col="TIME_factor",
+                        eval.args=list(eval_metric_for_imputation = "AUC",
+                                       output_options = "best"))
 gc()
 
 # Predicting for the first species in ENmod output (available 1-31)
@@ -125,15 +125,14 @@ Species_data->DATA_FULL[[k]]
 
 # Running ENphylo
 ENmod_subsam<-ENphylo_modeling(input_data=DATA_FULL,
-                              tree=tree,
-                              input_mask=MASK_FULL,
-                              obs_col="OBS",
-                              time_col="TIME_factor",
-                              min_occ_enfa=npoints+1,
-                              eval_metric_for_imputation="AUC",
-                              eval_threshold=0.7,
-                              output_options = "best",
-                              proj_name="ENmod_subsam")
+                               tree=tree,
+                               input_mask=MASK_FULL,
+                               obs_col="OBS",
+                               time_col="TIME_factor",
+                               min_occ_enfa=npoints+1,
+                               eval.args=list(eval_metric_for_imputation="AUC",
+                                              eval_threshold=0.7,
+                                              output_options = "best"))
 gc()
 
 # Predicting for the k species in ENmod_subsam output
