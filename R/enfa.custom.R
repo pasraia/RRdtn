@@ -36,8 +36,14 @@ enfa.custom<-function (s.dat, x, obs_col, geoID_col, time_col = NULL){
     stop("complex eigenvalues. Try removing correlated variables.")
   eigRs <- lapply(eigen(Rs), Re)
   keep <- (eigRs$values > 1e-09)
-  Rs12 <- eigRs$vectors[, keep] %*% diag(eigRs$values[keep]^(-0.5)) %*%
-    t(eigRs$vectors[, keep])
+  if(sum(keep)==1){
+    Rs12 <- eigRs$vectors[, keep] %*% diag(eigRs$values[keep]^(-0.5),
+                                           nrow = length(eigRs$values[keep]^(-0.5))) %*%
+      t(eigRs$vectors[, keep])
+  } else {
+    Rs12 <- eigRs$vectors[, keep] %*% diag(eigRs$values[keep]^(-0.5)) %*%
+      t(eigRs$vectors[, keep])
+  }
   W <- Rs12 %*% Rg %*% Rs12
   z <- Rs12 %*% mar
   y <- z/sqrt(sum(z^2))
